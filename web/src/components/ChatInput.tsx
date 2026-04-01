@@ -79,7 +79,7 @@ export default function ChatInput({ onSend, isLoading, disabled }: ChatInputProp
   };
 
   return (
-    <div className="glass-panel rounded-[1.75rem] p-4 md:p-5">
+    <div className="rounded-[1.5rem] inset-panel p-4 md:p-5">
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
           {attachments.map((attachment, index) => (
@@ -102,15 +102,15 @@ export default function ChatInput({ onSend, isLoading, disabled }: ChatInputProp
 
       <div
         className={clsx(
-          'flex items-end gap-3 p-3 md:p-4 rounded-[1.5rem] border transition-all',
+          'flex items-end gap-3 p-3 md:p-4 rounded-[1.25rem] border transition-all',
           isFocused
-            ? 'border-accent bg-white/[0.05] shadow-[0_0_0_1px_rgba(233,69,96,0.18)]'
-            : 'border-white/8 bg-white/[0.03]'
+            ? 'border-accent bg-white/[0.04] shadow-[0_0_0_1px_rgba(233,69,96,0.14)]'
+            : 'border-white/8 bg-black/10'
         )}
       >
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="h-11 w-11 shrink-0 rounded-2xl bg-white/[0.04] text-text-secondary hover:text-accent hover:bg-white/[0.07] transition-colors flex items-center justify-center"
+          className="h-11 w-11 shrink-0 rounded-[1rem] bg-white/[0.04] text-text-secondary hover:text-accent hover:bg-white/[0.07] transition-colors flex items-center justify-center"
           disabled={disabled}
         >
           <Image size={20} />
@@ -134,7 +134,7 @@ export default function ChatInput({ onSend, isLoading, disabled }: ChatInputProp
           onBlur={() => setIsFocused(false)}
           placeholder="Ask for research, paste a brief, or drop an image for analysis…"
           rows={1}
-          className="flex-1 bg-transparent resize-none text-text-primary placeholder:text-text-secondary focus:outline-none max-h-36 leading-6"
+          className="flex-1 bg-transparent resize-none text-text-primary placeholder:text-text-secondary focus:outline-none max-h-36 leading-6 text-[15px]"
           disabled={disabled}
         />
 
@@ -142,7 +142,7 @@ export default function ChatInput({ onSend, isLoading, disabled }: ChatInputProp
           onClick={handleSend}
           disabled={(!input.trim() && attachments.length === 0) || isLoading || disabled}
           className={clsx(
-            'h-11 w-11 shrink-0 rounded-2xl transition-all flex items-center justify-center',
+            'h-11 w-11 shrink-0 rounded-[1rem] transition-all flex items-center justify-center',
             input.trim() || attachments.length > 0
               ? 'bg-accent text-white hover:bg-accent/90 shadow-[0_10px_30px_rgba(233,69,96,0.28)]'
               : 'bg-white/[0.04] text-text-secondary',

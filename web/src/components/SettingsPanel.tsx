@@ -21,7 +21,7 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between px-5 py-5 border-b border-white/6">
         <div>
-          <p className="section-label mb-2">Control Deck</p>
+          <p className="section-label mb-2">Contextual Controls</p>
           <h2 className="font-semibold text-lg">Workspace Settings</h2>
         </div>
         {onClose && (
@@ -34,8 +34,8 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 space-y-6">
-        <div className="glass-panel rounded-[1.75rem] p-5 text-center">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="rounded-[1.5rem] inset-panel p-5 text-center">
           <div className="w-16 h-16 bg-accent/20 rounded-2xl border border-accent/20 flex items-center justify-center mx-auto mb-3">
             <span className="text-xl font-bold text-accent">
               {user?.email?.[0]?.toUpperCase() || 'U'}
@@ -56,7 +56,7 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
         {isAdmin && (
           <Link
             to="/admin"
-            className="glass-panel rounded-[1.5rem] p-4 flex items-center justify-between hover:border-accent/30 transition-colors"
+            className="rounded-[1.5rem] inset-panel p-4 flex items-center justify-between hover:border-accent/30 transition-colors"
           >
             <div>
               <p className="section-label mb-2">Administration</p>
@@ -69,19 +69,19 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
           </Link>
         )}
 
-        <div className="glass-panel rounded-[1.5rem] p-4">
+        <div className="rounded-[1.5rem] inset-panel p-4">
           <label className="flex items-center gap-2 text-sm font-medium mb-3">
             <Volume2 size={16} />
             Voice Selection
           </label>
-          <select className="w-full p-3 bg-white/[0.04] border border-white/8 rounded-2xl focus:outline-none focus:border-accent">
-            <option value="default">Default (System)</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
+          <select className="w-full p-3 bg-black/20 border border-white/8 rounded-2xl focus:outline-none focus:border-accent">
+            <option value="claude-3-opus">Claude 3 Opus</option>
+            <option value="gpt-4-turbo">GPT-4 Turbo</option>
+            <option value="minimax-coral">Coral Alpha</option>
           </select>
         </div>
 
-        <div className="glass-panel rounded-[1.5rem] p-4">
+        <div className="rounded-[1.5rem] inset-panel p-4">
           <label className="flex items-center gap-2 text-sm font-medium mb-3">
             <Sun size={16} className="text-text-secondary" />
             Theme
@@ -98,7 +98,7 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
           </div>
         </div>
 
-        <div className="glass-panel rounded-[1.5rem] p-4">
+        <div className="rounded-[1.5rem] inset-panel p-4">
           <label className="flex items-center gap-2 text-sm font-medium mb-3">
             <Shield size={16} />
             Usage Snapshot
@@ -111,6 +111,14 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
             <div className="w-full h-2 bg-black/20 rounded-full overflow-hidden">
               <div className="h-full bg-accent rounded-full" style={{ width: '42%' }} />
             </div>
+          </div>
+        </div>
+
+        <div className="rounded-[1.5rem] inset-panel p-4">
+          <p className="section-label mb-3">Mood Reference</p>
+          <div className="h-28 rounded-[1.25rem] bg-[linear-gradient(145deg,#1d1d21,#0f1013)] border border-white/6 relative overflow-hidden">
+            <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top_left,rgba(255,127,80,0.35),transparent_32%)]" />
+            <div className="absolute inset-0 opacity-20 bg-[linear-gradient(135deg,transparent_0%,rgba(255,255,255,0.12)_50%,transparent_100%)]" />
           </div>
         </div>
       </div>

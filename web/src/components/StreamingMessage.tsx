@@ -31,7 +31,7 @@ export default function StreamingMessage() {
         </div>
         <div
           className={clsx(
-            'p-4 md:p-5 rounded-[1.75rem] rounded-tl-md bg-white/[0.04] border border-white/8 text-text-primary',
+            'p-4 md:p-5 rounded-[1.25rem] rounded-tl-md bg-[#1b1c20] border border-white/8 text-text-primary',
             'transition-all duration-150'
           )}
         >

@@ -1,6 +1,16 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, MessageCircle, Trash2, PanelLeftOpen } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  MessageCircle,
+  Trash2,
+  PanelLeftOpen,
+  Settings2,
+  Shapes,
+  Library,
+  ChevronRight,
+} from 'lucide-react';
 import { clsx } from 'clsx';
 import { useChatStore, Conversation } from '../stores/chatStore';
 import { api } from '../lib/api';
@@ -123,22 +133,22 @@ export default function ChatList() {
 
       <aside
         className={clsx(
-          'fixed md:static inset-y-0 left-0 z-40 w-[22rem] rail-panel flex flex-col',
+          'fixed md:static inset-y-0 left-0 z-40 w-[17rem] rail-panel flex flex-col',
           'transform transition-transform duration-300 ease-in-out',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         )}
       >
-        <div className="px-5 pt-6 pb-5 border-b border-white/6">
-          <div className="flex items-start justify-between mb-5">
+        <div className="px-4 pt-6 pb-5 border-b border-white/6">
+          <div className="flex items-start justify-between mb-6">
             <div>
               <p className="section-label mb-2">Operator Workspace</p>
-              <h1 className="text-2xl font-semibold tracking-tight">MiniChat</h1>
+              <h1 className="text-[1.9rem] leading-8 font-semibold tracking-tight">MiniChat</h1>
               <p className="text-sm text-text-secondary mt-2 max-w-xs">
                 Search, debug, and steer AI conversations from one command deck.
               </p>
             </div>
-            <div className="h-11 w-11 rounded-2xl bg-accent/15 text-accent flex items-center justify-center">
-              <MessageCircle size={18} />
+            <div className="h-10 w-10 rounded-2xl bg-white/[0.04] text-accent flex items-center justify-center border border-white/8">
+              <MessageCircle size={17} />
             </div>
           </div>
 
@@ -146,8 +156,7 @@ export default function ChatList() {
             onClick={handleNewChat}
             disabled={isCreating}
             className={clsx(
-              'w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl font-medium transition-all',
-              'bg-accent text-white hover:bg-accent/90 shadow-[0_10px_30px_rgba(233,69,96,0.25)] disabled:opacity-50'
+              'w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl font-medium transition-all stitch-button disabled:opacity-50'
             )}
           >
             <Plus size={18} />
@@ -164,19 +173,19 @@ export default function ChatList() {
               placeholder="Search title or content"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-white/[0.03] border border-white/8 rounded-2xl text-sm placeholder:text-text-secondary focus:outline-none focus:border-accent"
+              className="w-full pl-11 pr-4 py-3 sidebar-search rounded-2xl text-sm placeholder:text-text-secondary focus:outline-none focus:border-accent"
             />
           </div>
         </div>
 
-        <div className="px-5 pt-4 pb-3 border-b border-white/6">
+        <div className="px-4 pt-4 pb-3 border-b border-white/6">
           <div className="flex items-center justify-between text-xs text-text-secondary">
             <span className="section-label">Conversations</span>
             <span>{filteredConversations.length}</span>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto conversation-scroller px-3 py-3">
+        <div className="flex-1 overflow-y-auto conversation-scroller px-2 py-3">
           {filteredConversations.length === 0 ? (
             <div className="p-6 text-center text-text-secondary">
               {searchQuery ? 'No matching threads' : 'No threads yet'}
@@ -190,7 +199,7 @@ export default function ChatList() {
                   className={clsx(
                     'relative flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all group border',
                     activeConversationId === conversation.id
-                      ? 'bg-white/[0.06] border-accent/40 shadow-[0_12px_28px_rgba(0,0,0,0.18)]'
+                      ? 'bg-white/[0.06] border-accent/30 shadow-[0_12px_28px_rgba(0,0,0,0.18)]'
                       : 'bg-transparent border-transparent hover:bg-white/[0.03] hover:border-white/6'
                   )}
                 >
@@ -235,7 +244,39 @@ export default function ChatList() {
           )}
         </div>
 
-        <div className="px-5 py-4 border-t border-white/6">
+        <div className="px-4 py-4 border-t border-white/6 space-y-3">
+          <div className="space-y-1">
+            <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-2xl hover:bg-white/[0.04] text-sm text-text-secondary transition-colors">
+              <span className="flex items-center gap-3">
+                <Shapes size={15} />
+                Templates
+              </span>
+              <ChevronRight size={14} />
+            </button>
+            <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-2xl hover:bg-white/[0.04] text-sm text-text-secondary transition-colors">
+              <span className="flex items-center gap-3">
+                <Settings2 size={15} />
+                Settings
+              </span>
+              <ChevronRight size={14} />
+            </button>
+            <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-2xl hover:bg-white/[0.04] text-sm text-text-secondary transition-colors">
+              <span className="flex items-center gap-3">
+                <Library size={15} />
+                Library
+              </span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+
+          <div className="glass-panel rounded-[1.5rem] px-4 py-4">
+            <p className="text-sm font-medium text-white">Workspace Plan</p>
+            <p className="text-xs text-text-secondary mt-1">Desk access and admin controls enabled.</p>
+            <button className="mt-4 w-full rounded-2xl stitch-button py-2.5 text-sm font-medium">
+              Upgrade Now
+            </button>
+          </div>
+
           <div className="glass-panel rounded-2xl px-4 py-3">
             <p className="text-sm font-medium truncate">{user?.name || user?.email || 'Operator'}</p>
             <div className="flex items-center justify-between mt-2 text-xs text-text-secondary">

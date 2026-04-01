@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Settings, Trash2, Sparkles, ArrowLeft } from 'lucide-react';
+import { Settings, Trash2, Sparkles, ArrowLeft, Bell, Database } from 'lucide-react';
 import { clsx } from 'clsx';
 import ChatList from '../components/ChatList';
 import MessageBubble from '../components/MessageBubble';
@@ -94,9 +94,26 @@ export default function ChatPage() {
       <div className="accent-orb hidden lg:block" />
 
       <main className="flex-1 min-w-0 p-3 md:p-4 xl:p-5">
-        <div className="thread-panel h-full rounded-[2rem] border border-white/6 flex overflow-hidden">
+        <div className="thread-panel h-full rounded-[1.75rem] border border-white/6 flex overflow-hidden">
           <section className="flex-1 min-w-0 flex flex-col">
-            <header className="px-5 md:px-7 py-5 border-b border-white/6">
+            <header className="px-5 md:px-7 py-4 border-b border-white/6">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <div className="hidden lg:flex items-center gap-2 text-xs">
+                  <span className="obsidian-chip px-3 py-1 rounded-full">Marketing Strategy Q4</span>
+                  <span className="obsidian-chip px-3 py-1 rounded-full text-accent border-accent/20">Models</span>
+                  <span className="obsidian-chip px-3 py-1 rounded-full">Plugins</span>
+                  <span className="obsidian-chip px-3 py-1 rounded-full">Datasets</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button className="hidden lg:flex h-10 w-10 rounded-2xl bg-white/[0.04] border border-white/6 items-center justify-center text-text-secondary">
+                    <Bell size={16} />
+                  </button>
+                  <button className="hidden lg:flex h-10 w-10 rounded-2xl bg-white/[0.04] border border-white/6 items-center justify-center text-text-secondary">
+                    <Database size={16} />
+                  </button>
+                </div>
+              </div>
+
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-4 min-w-0">
                   <div className="hidden md:flex h-12 w-12 rounded-2xl bg-accent/15 text-accent items-center justify-center border border-accent/20 shrink-0">
@@ -138,8 +155,8 @@ export default function ChatPage() {
                     className={clsx(
                       'h-11 px-4 rounded-2xl transition-colors flex items-center gap-2',
                       showSettings
-                        ? 'bg-accent text-white'
-                        : 'bg-white/[0.04] hover:bg-white/[0.08] text-text-secondary'
+                        ? 'stitch-button'
+                        : 'bg-white/[0.04] hover:bg-white/[0.08] text-text-secondary border border-white/6'
                     )}
                     title="Settings"
                   >
@@ -150,24 +167,24 @@ export default function ChatPage() {
               </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto thread-scroller px-4 md:px-6 xl:px-10 py-8 soft-grid">
-              <div className="max-w-4xl mx-auto">
+            <div className="flex-1 overflow-y-auto thread-scroller px-4 md:px-6 xl:px-8 py-8 soft-grid">
+              <div className="max-w-[56rem] mx-auto">
                 {messages.length === 0 && !isTyping ? (
-                  <div className="glass-panel rounded-[2rem] p-8 md:p-10 mb-8">
+                  <div className="glass-panel rounded-[1.75rem] p-8 md:p-10 mb-8">
                     <p className="section-label mb-3">Thread ready</p>
-                    <h2 className="text-2xl md:text-4xl font-semibold tracking-tight max-w-2xl">
+                    <h2 className="text-2xl md:text-[2.6rem] leading-tight font-semibold tracking-tight max-w-2xl">
                       Start with a sharp question, a pasted brief, or an image to analyze.
                     </h2>
                     <div className="grid gap-3 md:grid-cols-3 mt-8 text-sm">
-                      <div className="rounded-2xl bg-white/[0.03] border border-white/6 p-4">
+                      <div className="rounded-2xl inset-panel p-4">
                         <p className="font-medium mb-2">Strategy</p>
                         <p className="text-text-secondary">Ask for plans, tradeoffs, or implementation steps.</p>
                       </div>
-                      <div className="rounded-2xl bg-white/[0.03] border border-white/6 p-4">
+                      <div className="rounded-2xl inset-panel p-4">
                         <p className="font-medium mb-2">Research</p>
                         <p className="text-text-secondary">Use the model to synthesize current information fast.</p>
                       </div>
-                      <div className="rounded-2xl bg-white/[0.03] border border-white/6 p-4">
+                      <div className="rounded-2xl inset-panel p-4">
                         <p className="font-medium mb-2">Review</p>
                         <p className="text-text-secondary">Drop in code, screenshots, or bugs and work the loop.</p>
                       </div>
@@ -183,15 +200,15 @@ export default function ChatPage() {
               </div>
             </div>
 
-            <div className="px-4 md:px-6 xl:px-10 pb-4 md:pb-6">
-              <div className="max-w-4xl mx-auto">
+            <div className="px-4 md:px-6 xl:px-8 pb-4 md:pb-6">
+              <div className="max-w-[56rem] mx-auto">
                 <ChatInput onSend={handleSendMessage} isLoading={isTyping} />
               </div>
             </div>
           </section>
 
           {showSettings && (
-            <aside className="hidden xl:block w-[22rem] border-l border-white/6 bg-[#0d1123]/88 backdrop-blur-xl">
+            <aside className="hidden xl:block w-[19rem] border-l border-white/6 bg-[#141518]">
               <SettingsPanel onClose={() => setShowSettings(false)} />
             </aside>
           )}

@@ -30,9 +30,8 @@ body {
   @apply bg-background text-text-primary antialiased;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(233, 69, 96, 0.16), transparent 28%),
-    radial-gradient(circle at top right, rgba(130, 90, 255, 0.08), transparent 24%),
-    linear-gradient(180deg, #0d1024 0%, #0a0d1f 100%);
+    radial-gradient(circle at top left, rgba(255, 127, 80, 0.14), transparent 24%),
+    linear-gradient(180deg, #0f1013 0%, #101114 55%, #0d0e12 100%);
 }
 
 /* Streaming cursor animation */
@@ -51,51 +50,45 @@ body {
 
 .app-shell {
   min-height: 100vh;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)),
-    radial-gradient(circle at center, rgba(233, 69, 96, 0.08), transparent 38%);
+  background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0));
 }
 
 .glass-panel {
-  background: rgba(18, 22, 45, 0.72);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(24, 24, 28, 0.92);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   box-shadow:
-    0 24px 80px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 18px 48px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .rail-panel {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
-    rgba(11, 14, 30, 0.88);
-  backdrop-filter: blur(18px);
+  background: #151518;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .thread-panel {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0)),
-    rgba(11, 14, 30, 0.62);
-  backdrop-filter: blur(14px);
+    linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0)),
+    #111215;
 }
 
 .accent-orb {
   position: absolute;
-  inset: auto auto 18% 58%;
-  width: 24rem;
-  height: 24rem;
+  inset: auto auto 12% 55%;
+  width: 18rem;
+  height: 18rem;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(233, 69, 96, 0.18), transparent 68%);
+  background: radial-gradient(circle, rgba(255, 127, 80, 0.12), transparent 70%);
   pointer-events: none;
-  filter: blur(12px);
+  filter: blur(24px);
 }
 
 .soft-grid {
   background-image:
-    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-  background-size: 32px 32px;
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 28px 28px;
 }
 
 .conversation-scroller {
@@ -110,7 +103,29 @@ body {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   font-size: 0.72rem;
-  color: #8f94b6;
+  color: #8c8f9a;
+}
+
+.obsidian-chip {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  color: #b4b6bf;
+}
+
+.stitch-button {
+  background: linear-gradient(135deg, #ff9c84 0%, #f47748 100%);
+  color: #380c00;
+  box-shadow: 0 14px 34px rgba(244, 119, 72, 0.18);
+}
+
+.sidebar-search {
+  background: #0f1013;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.inset-panel {
+  background: #0f1013;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 /* Smooth transitions */

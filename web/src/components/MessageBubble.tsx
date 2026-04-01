@@ -128,10 +128,10 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
 
         <div
           className={clsx(
-            'p-4 md:p-5 rounded-[1.75rem] border backdrop-blur-xl',
+            'p-4 md:p-5 rounded-[1.25rem] border backdrop-blur-xl',
             isUser
-              ? 'bg-gradient-to-br from-[#f05b79] to-[#d33d5a] text-white border-transparent shadow-[0_16px_40px_rgba(233,69,96,0.22)] rounded-tr-md'
-              : 'bg-white/[0.04] text-text-primary border-white/8 rounded-tl-md'
+              ? 'bg-gradient-to-br from-[#ff9c84] to-[#f47748] text-[#3d1103] border-transparent shadow-[0_16px_40px_rgba(244,119,72,0.18)] rounded-tr-md'
+              : 'bg-[#1b1c20] text-text-primary border-white/8 rounded-tl-md'
           )}
         >
           {renderedContent}
