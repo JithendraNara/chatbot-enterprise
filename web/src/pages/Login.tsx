@@ -2,12 +2,10 @@ import { useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useAuthStore } from '../stores/authStore';
-import { api } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { setAuth } = useAuthStore();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,8 +18,15 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const response = await api.login(email, password);
-      setAuth(response.token, response.user);
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
       navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');

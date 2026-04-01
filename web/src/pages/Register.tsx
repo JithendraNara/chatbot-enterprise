@@ -2,22 +2,22 @@ import { useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useAuthStore } from '../stores/authStore';
-import { api } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 export default function Register() {
   const navigate = useNavigate();
-  const { setAuth } = useAuthStore();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    setNotice('');
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -32,9 +32,26 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      const response = await api.register(email, password);
-      setAuth(response.token, response.user);
-      navigate('/');
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: email.split('@')[0],
+          },
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.session) {
+        navigate('/');
+        return;
+      }
+
+      setNotice('Account created. Check your email to confirm your sign-in.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -59,6 +76,12 @@ export default function Register() {
             <div className="flex items-center gap-2 p-3 mb-4 bg-accent/10 border border-accent/50 rounded-lg text-accent text-sm">
               <AlertCircle size={16} />
               {error}
+            </div>
+          )}
+
+          {notice && (
+            <div className="p-3 mb-4 bg-card border border-border-color rounded-lg text-sm text-text-secondary">
+              {notice}
             </div>
           )}
 

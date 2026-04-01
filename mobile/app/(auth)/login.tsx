@@ -12,11 +12,10 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { login } from '../../lib/api';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { setAuth } = useAuth();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -32,11 +31,10 @@ export default function LoginScreen() {
     setError(null);
 
     try {
-      const response = await login(email.trim(), password);
-      await setAuth(response.token, response.user);
+      await signIn(email.trim(), password);
       router.replace('/(tabs)');
     } catch (err: any) {
-      if (err.response?.status === 401) {
+      if (typeof err?.message === 'string' && err.message.toLowerCase().includes('invalid')) {
         setError('Invalid email or password');
       } else {
         setError('Login failed. Please try again.');

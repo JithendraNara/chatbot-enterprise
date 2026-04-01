@@ -27,6 +27,40 @@ interface MessagesResponse {
   messages: Message[];
 }
 
+interface AdminOverviewResponse {
+  overview: {
+    organizationId: string;
+    memberCount: number;
+    conversationCount: number;
+    messageCount: number;
+    aiRunCount: number;
+    memoryCount: number;
+  };
+}
+
+interface AdminUsersResponse {
+  users: {
+    id: string;
+    email: string;
+    displayName: string | null;
+    globalRole: string;
+    membershipRole: string;
+    status: string;
+    isDefaultWorkspace: boolean;
+    joinedAt: string;
+  }[];
+}
+
+interface AdminConversationsResponse {
+  conversations: {
+    id: string;
+    title: string;
+    ownerUserId: string;
+    createdAt: number;
+    updatedAt: number;
+  }[];
+}
+
 interface BackendAttachment {
   type: 'image';
   url: string;
@@ -139,6 +173,15 @@ export const api = {
       messages: (response.conversation.messages || []).map(normalizeMessage),
     } satisfies MessagesResponse;
   },
+
+  getAdminOverview: () =>
+    fetchWithAuth<AdminOverviewResponse>('/admin/overview'),
+
+  getAdminUsers: () =>
+    fetchWithAuth<AdminUsersResponse>('/admin/users'),
+
+  getAdminConversations: () =>
+    fetchWithAuth<AdminConversationsResponse>('/admin/conversations'),
 
   sendMessage: async (
     conversationId: string,

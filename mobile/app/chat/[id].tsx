@@ -11,10 +11,12 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../contexts/AuthContext';
 import { useChatStore, Message } from '../../stores/chat-store';
 import { MessageBubble } from '../../components/chat/MessageBubble';
 import { ChatInput } from '../../components/chat/ChatInput';
 import { useStreamingChat } from '../../hooks/useStreamingChat';
+import { getMessages } from '../../lib/api';
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -22,18 +24,39 @@ export default function ChatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList>(null);
+  const { token } = useAuth();
 
   const {
     conversations,
     streamingText,
     isTyping,
     updateConversationTitle,
+    addConversation,
   } = useChatStore();
 
   const conversation = chatId ? conversations[chatId] : undefined;
   const messages = conversation?.messages || [];
 
   const { sendMessage, isLoading } = useStreamingChat(chatId);
+
+  useEffect(() => {
+    if (!chatId || !token || conversation) return;
+
+    void (async () => {
+      try {
+        const messages = await getMessages(token, chatId);
+        addConversation({
+          id: chatId,
+          title: 'Conversation',
+          messages,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      } catch (error) {
+        console.error('Failed to load conversation messages:', error);
+      }
+    })();
+  }, [chatId, token, conversation, addConversation]);
 
   useEffect(() => {
     if (conversation && conversation.messages.length === 1 && !conversation.title) {

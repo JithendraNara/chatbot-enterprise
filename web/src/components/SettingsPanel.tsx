@@ -12,7 +12,7 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    logout();
+    void logout();
     navigate('/login');
   };
 

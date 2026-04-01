@@ -1,14 +1,37 @@
 const API_URL =
   (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
+export { API_URL };
+
 interface RequestOptions extends RequestInit {
   token?: string;
 }
 
-async function request<T>(
-  endpoint: string,
-  options: RequestOptions = {}
-): Promise<T> {
+interface BackendConversation {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages?: BackendMessage[];
+}
+
+interface BackendMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  attachments?: { type: 'image'; url: string }[];
+}
+
+interface BackendConversationListResponse {
+  conversations: BackendConversation[];
+}
+
+interface BackendConversationResponse {
+  conversation: BackendConversation;
+}
+
+async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const { token, ...fetchOptions } = options;
 
   const headers: Record<string, string> = {
@@ -17,7 +40,7 @@ async function request<T>(
   };
 
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers.Authorization = `Bearer ${token}`;
   }
 
   const response = await fetch(`${API_URL}${endpoint}`, {
@@ -26,7 +49,7 @@ async function request<T>(
   });
 
   if (!response.ok) {
-    const error = new Error('Request failed') as any;
+    const error = new Error('Request failed') as Error & { response?: Response };
     error.response = response;
     throw error;
   }
@@ -34,104 +57,77 @@ async function request<T>(
   return response.json();
 }
 
-// Auth
-export interface LoginResponse {
-  token: string;
-  user: {
-    id: string;
-    email: string;
-  };
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  attachments?: { type: 'image'; url: string }[];
 }
 
-export async function login(
-  email: string,
-  password: string
-): Promise<LoginResponse> {
-  return request<LoginResponse>('/api/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  });
-}
-
-export async function register(
-  email: string,
-  password: string
-): Promise<{ message: string }> {
-  return request<{ message: string }>('/api/auth/register', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  });
-}
-
-// Conversations
 export interface Conversation {
   id: string;
   title: string;
-  messages: any[];
+  messages: Message[];
   createdAt: number;
   updatedAt: number;
 }
 
-export async function getConversations(
-  token: string
-): Promise<Conversation[]> {
-  return request<Conversation[]>('/api/conversations', {
-    token,
-  });
+function normalizeMessage(message: BackendMessage): Message {
+  return {
+    id: message.id,
+    role: message.role,
+    content: message.content,
+    timestamp: message.timestamp,
+    attachments: message.attachments,
+  };
 }
 
-export async function getMessages(
-  token: string,
-  conversationId: string
-): Promise<any[]> {
-  return request<any[]>(`/api/conversations/${conversationId}/messages`, {
+function normalizeConversation(conversation: BackendConversation): Conversation {
+  return {
+    id: conversation.id,
+    title: conversation.title,
+    messages: (conversation.messages || []).map(normalizeMessage),
+    createdAt: conversation.createdAt,
+    updatedAt: conversation.updatedAt,
+  };
+}
+
+export async function getConversations(token: string): Promise<Conversation[]> {
+  const response = await request<BackendConversationListResponse>('/api/conversations', {
     token,
   });
+
+  return response.conversations.map(normalizeConversation);
+}
+
+export async function getMessages(token: string, conversationId: string): Promise<Message[]> {
+  const response = await request<BackendConversationResponse>(
+    `/api/conversations/${conversationId}`,
+    {
+      token,
+    }
+  );
+
+  return (response.conversation.messages || []).map(normalizeMessage);
 }
 
 export async function createConversation(
   token: string,
   title?: string
 ): Promise<Conversation> {
-  return request<Conversation>('/api/conversations', {
+  const response = await request<BackendConversationResponse>('/api/conversations', {
     method: 'POST',
     token,
     body: JSON.stringify({ title }),
   });
+
+  return normalizeConversation(response.conversation);
 }
 
-export async function deleteConversation(
-  token: string,
-  conversationId: string
-): Promise<void> {
-  return request<void>(`/api/conversations/${conversationId}`, {
+export async function deleteConversation(token: string, conversationId: string): Promise<void> {
+  await request<void>(`/api/conversations/${conversationId}`, {
     method: 'DELETE',
     token,
   });
-}
-
-// Chat
-export interface SendMessageResponse {
-  message: {
-    id: string;
-    role: 'user' | 'assistant';
-    content: string;
-    timestamp: number;
-  };
-  conversationId: string;
-}
-
-export async function sendMessage(
-  token: string,
-  conversationId: string,
-  content: string
-): Promise<SendMessageResponse> {
-  return request<SendMessageResponse>(
-    `/api/chat/message`,
-    {
-      method: 'POST',
-      token,
-      body: JSON.stringify({ conversationId, content }),
-    }
-  );
 }

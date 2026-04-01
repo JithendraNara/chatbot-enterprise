@@ -5,7 +5,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ChatPage from './pages/ChatPage';
 import ChatListPage from './pages/ChatListPage';
-import { useAuthStore } from './stores/authStore';
+import AdminPage from './pages/Admin';
+import { AuthProvider, useAuthStore } from './stores/authStore';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -18,20 +19,31 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const initialized = useAuthStore((s) => s.initialized);
   const token = useAuthStore((s) => s.token);
   const location = useLocation();
+  if (!initialized) return <div className="min-h-screen bg-background" />;
   if (!token) return <Navigate to="/login" state={{ from: location }} replace />;
   return <>{children}</>;
 }
 
 function AppRouter() {
+  const initialized = useAuthStore((s) => s.initialized);
   const token = useAuthStore((s) => s.token);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    if (!token) navigate('/login');
-    else navigate('/');
-  }, [token]);
+    if (!initialized) return;
+
+    const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+
+    if (!token && !isAuthPage) {
+      navigate('/login');
+    } else if (token && isAuthPage) {
+      navigate('/');
+    }
+  }, [initialized, token, location.pathname, navigate]);
 
   return (
     <Routes>
@@ -53,6 +65,14 @@ function AppRouter() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminPage />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   );
 }
@@ -60,9 +80,11 @@ function AppRouter() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AppRouter />
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRouter />
+        </BrowserRouter>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { useChatStore } from '../stores/chat-store';
+import { API_URL } from '../lib/api';
 
 interface SessionContextType {
   isConnected: boolean;
@@ -37,7 +38,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const wsUrl = `ws://localhost:3000/ws?token=${token}`;
+    const wsBaseUrl = API_URL.replace(/^http/, 'ws');
+    const wsUrl = `${wsBaseUrl}/ws?token=${token}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {

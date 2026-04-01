@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
+import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 
 interface User {
   id: string;
@@ -9,31 +10,71 @@ interface User {
 }
 
 interface AuthState {
+  initialized: boolean;
   token: string | null;
   user: User | null;
-  setAuth: (token: string, user: User) => void;
-  logout: () => void;
+  setSession: (session: Session | null) => void;
+  setInitialized: (initialized: boolean) => void;
+  logout: () => Promise<void>;
   isAuthenticated: () => boolean;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
-      token: null,
-      user: null,
+function mapUser(user: SupabaseUser | null): User | null {
+  if (!user) return null;
 
-      setAuth: (token, user) => set({ token, user }),
+  return {
+    id: user.id,
+    email: user.email ?? '',
+    name:
+      (typeof user.user_metadata?.name === 'string' && user.user_metadata.name) ||
+      (typeof user.user_metadata?.full_name === 'string' && user.user_metadata.full_name) ||
+      undefined,
+  };
+}
 
-      logout: () => set({ token: null, user: null }),
+export const useAuthStore = create<AuthState>((set, get) => ({
+  initialized: false,
+  token: null,
+  user: null,
 
-      isAuthenticated: () => !!get().token,
+  setSession: (session) =>
+    set({
+      token: session?.access_token ?? null,
+      user: mapUser(session?.user ?? null),
     }),
-    {
-      name: 'auth-storage',
-    }
-  )
-);
+
+  setInitialized: (initialized) => set({ initialized }),
+
+  logout: async () => {
+    await supabase.auth.signOut();
+    set({ token: null, user: null });
+  },
+
+  isAuthenticated: () => !!get().token,
+}));
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    let isMounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!isMounted) return;
+      useAuthStore.getState().setSession(data.session);
+      useAuthStore.getState().setInitialized(true);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      useAuthStore.getState().setSession(session);
+      useAuthStore.getState().setInitialized(true);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   return <>{children}</>;
 }
