@@ -36,6 +36,7 @@ export default function Register() {
         email,
         password,
         options: {
+          emailRedirectTo: new URL('/login', window.location.origin).toString(),
           data: {
             name: email.split('@')[0],
           },

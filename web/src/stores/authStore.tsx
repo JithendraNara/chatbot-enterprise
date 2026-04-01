@@ -117,31 +117,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
+    const syncProfile = async (session: Session | null) => {
+      try {
+        if (session) {
+          await useAuthStore.getState().refreshProfile();
+        } else {
+          useAuthStore.setState({ status: null, globalRole: null });
+        }
+      } catch (error) {
+        console.error('Failed to refresh profile:', error);
+        await supabase.auth.signOut();
+        useAuthStore.setState({
+          token: null,
+          user: null,
+          status: null,
+          globalRole: null,
+        });
+      } finally {
+        if (isMounted) {
+          useAuthStore.getState().setInitialized(true);
+        }
+      }
+    };
+
     supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
       useAuthStore.getState().setSession(data.session);
-      const finish = async () => {
-        if (data.session) {
-          await useAuthStore.getState().refreshProfile();
-        }
-        useAuthStore.getState().setInitialized(true);
-      };
-      void finish();
+      void syncProfile(data.session);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       useAuthStore.getState().setSession(session);
-      const finish = async () => {
-        if (session) {
-          await useAuthStore.getState().refreshProfile();
-        } else {
-          useAuthStore.setState({ status: null, globalRole: null });
-        }
-        useAuthStore.getState().setInitialized(true);
-      };
-      void finish();
+      void syncProfile(session);
     });
 
     return () => {

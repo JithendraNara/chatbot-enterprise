@@ -58,29 +58,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    const syncProfile = async (session: Session | null) => {
+      try {
+        if (session) {
+          await refreshProfile(session.access_token);
+        }
+      } catch (error) {
+        console.error('Failed to refresh profile:', error);
+        await supabase.auth.signOut();
+        if (isMounted) {
+          setToken(null);
+          setUser(null);
+          setStatus(null);
+          setGlobalRole(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
     supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
       applySession(data.session);
-      const finish = async () => {
-        if (data.session) {
-          await refreshProfile(data.session.access_token);
-        }
-        setIsLoading(false);
-      };
-      void finish();
+      void syncProfile(data.session);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       applySession(session);
-      const finish = async () => {
-        if (session) {
-          await refreshProfile(session.access_token);
-        }
-        setIsLoading(false);
-      };
-      void finish();
+      void syncProfile(session);
     });
 
     return () => {
@@ -122,10 +131,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string) => {
+    const emailRedirectTo = process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        ...(emailRedirectTo ? { emailRedirectTo } : {}),
         data: {
           name: email.split('@')[0],
         },
