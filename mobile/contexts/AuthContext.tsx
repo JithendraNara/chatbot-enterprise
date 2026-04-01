@@ -16,6 +16,7 @@ interface AuthContextType {
   user: User | null;
   status: ApprovalStatus;
   globalRole: string | null;
+  profileError: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<{ requiresEmailConfirmation: boolean }>;
   refreshProfile: () => Promise<void>;
@@ -44,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<ApprovalStatus>(null);
   const [globalRole, setGlobalRole] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!session) {
         setStatus(null);
         setGlobalRole(null);
+        setProfileError(null);
       }
     };
 
@@ -65,12 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('Failed to refresh profile:', error);
-        await supabase.auth.signOut();
         if (isMounted) {
-          setToken(null);
-          setUser(null);
-          setStatus(null);
+          setStatus('pending');
           setGlobalRole(null);
+          setProfileError(error instanceof Error ? error.message : 'Failed to verify access');
         }
       } finally {
         if (isMounted) {
@@ -103,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!currentToken) {
       setStatus(null);
       setGlobalRole(null);
+      setProfileError(null);
       return;
     }
 
@@ -117,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
     setStatus(profile.status);
     setGlobalRole(profile.globalRole);
+    setProfileError(null);
   };
 
   const signIn = async (email: string, password: string) => {
@@ -161,7 +164,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ token, user, status, globalRole, signIn, signUp, refreshProfile, logout, isLoading }}
+      value={{
+        token,
+        user,
+        status,
+        globalRole,
+        profileError,
+        signIn,
+        signUp,
+        refreshProfile,
+        logout,
+        isLoading,
+      }}
     >
       {children}
     </AuthContext.Provider>

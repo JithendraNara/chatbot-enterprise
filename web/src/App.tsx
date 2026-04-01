@@ -33,6 +33,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function PendingApprovalPage() {
   const status = useAuthStore((s) => s.status);
+  const profileError = useAuthStore((s) => s.profileError);
   const logout = useAuthStore((s) => s.logout);
 
   return (
@@ -42,7 +43,9 @@ function PendingApprovalPage() {
           {status === 'suspended' ? 'Account Suspended' : 'Waiting For Approval'}
         </h1>
         <p className="text-text-secondary mb-6">
-          {status === 'suspended'
+          {profileError
+            ? `We could not verify your access yet: ${profileError}`
+            : status === 'suspended'
             ? 'Your account has been suspended. Contact an administrator if you think this is a mistake.'
             : 'Your account exists, but an administrator still needs to approve access before you can use MiniChat.'}
         </p>

@@ -20,6 +20,7 @@ interface AuthState {
   user: User | null;
   status: ApprovalStatus;
   globalRole: string | null;
+  profileError: string | null;
   setSession: (session: Session | null) => void;
   setInitialized: (initialized: boolean) => void;
   refreshProfile: () => Promise<void>;
@@ -46,6 +47,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   status: null,
   globalRole: null,
+  profileError: null,
 
   setSession: (session) =>
     set({
@@ -53,6 +55,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user: mapUser(session?.user ?? null),
       status: session ? get().status : null,
       globalRole: session ? get().globalRole : null,
+      profileError: session ? get().profileError : null,
     }),
 
   setInitialized: (initialized) => set({ initialized }),
@@ -61,7 +64,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const token = get().token;
 
     if (!token) {
-      set({ status: null, globalRole: null });
+      set({ status: null, globalRole: null, profileError: null });
       return;
     }
 
@@ -87,7 +90,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!response.ok || !body.user) {
       if (response.status === 401) {
         await supabase.auth.signOut();
-        set({ token: null, user: null, status: null, globalRole: null });
+        set({ token: null, user: null, status: null, globalRole: null, profileError: null });
         return;
       }
 
@@ -102,12 +105,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       },
       status: body.user.status,
       globalRole: body.user.globalRole,
+      profileError: null,
     });
   },
 
   logout: async () => {
     await supabase.auth.signOut();
-    set({ token: null, user: null, status: null, globalRole: null });
+    set({ token: null, user: null, status: null, globalRole: null, profileError: null });
   },
 
   isAuthenticated: () => !!get().token,
@@ -122,16 +126,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session) {
           await useAuthStore.getState().refreshProfile();
         } else {
-          useAuthStore.setState({ status: null, globalRole: null });
+          useAuthStore.setState({ status: null, globalRole: null, profileError: null });
         }
       } catch (error) {
         console.error('Failed to refresh profile:', error);
-        await supabase.auth.signOut();
         useAuthStore.setState({
-          token: null,
-          user: null,
-          status: null,
+          status: 'pending',
           globalRole: null,
+          profileError: error instanceof Error ? error.message : 'Failed to verify access',
         });
       } finally {
         if (isMounted) {
