@@ -1,6 +1,8 @@
 import { useAuthStore } from '../stores/authStore';
+import type { Message } from '../stores/chatStore';
 
-const API_BASE = '/api';
+const API_BASE =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') || '/api';
 
 interface LoginResponse {
   token: string;
@@ -17,20 +19,68 @@ interface ConversationsResponse {
     title: string;
     createdAt: string;
     updatedAt: string;
+    messageCount?: number;
   }[];
 }
 
 interface MessagesResponse {
-  messages: {
-    id: string;
-    role: 'user' | 'assistant' | 'system';
-    content: string;
-    createdAt: string;
-    attachments?: { uri: string; type: string; name: string }[];
-  }[];
+  messages: Message[];
 }
 
-async function fetchWithAuth(url: string, options: RequestInit = {}) {
+interface BackendAttachment {
+  type: 'image';
+  url: string;
+}
+
+interface BackendMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  attachments?: BackendAttachment[];
+}
+
+interface BackendConversation {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messageCount?: number;
+  messages?: BackendMessage[];
+}
+
+interface BackendErrorResponse {
+  error?: string;
+  message?: string;
+}
+
+const toIsoString = (value: number | string) => new Date(value).toISOString();
+
+function normalizeMessage(message: BackendMessage): Message {
+  return {
+    id: message.id,
+    role: message.role,
+    content: message.content,
+    createdAt: toIsoString(message.timestamp),
+    attachments: message.attachments?.map((attachment) => ({
+      uri: attachment.url,
+      type: 'image/*',
+      name: 'Image attachment',
+    })),
+  };
+}
+
+function normalizeConversation(conversation: BackendConversation) {
+  return {
+    id: conversation.id,
+    title: conversation.title,
+    createdAt: toIsoString(conversation.createdAt),
+    updatedAt: toIsoString(conversation.updatedAt),
+    messageCount: conversation.messageCount,
+  };
+}
+
+async function fetchWithAuth<T>(url: string, options: RequestInit = {}): Promise<T> {
   const token = useAuthStore.getState().token;
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -44,11 +94,13 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    const error = await response
+      .json()
+      .catch(() => ({ message: 'Request failed' })) as BackendErrorResponse;
+    throw new Error(error.error || error.message || `HTTP ${response.status}`);
   }
 
-  return response.json();
+  return response.json() as Promise<T>;
 }
 
 export const api = {
@@ -64,17 +116,29 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }) as Promise<LoginResponse>,
 
-  getConversations: () =>
-    fetchWithAuth('/conversations') as Promise<ConversationsResponse>,
+  getConversations: async () => {
+    const response = await fetchWithAuth<{ conversations: BackendConversation[] }>('/conversations');
+    return {
+      conversations: response.conversations.map(normalizeConversation),
+    } satisfies ConversationsResponse;
+  },
 
-  createConversation: (title?: string) =>
-    fetchWithAuth('/conversations', {
+  createConversation: async (title?: string) => {
+    const response = await fetchWithAuth<{ conversation: BackendConversation }>('/conversations', {
       method: 'POST',
       body: JSON.stringify({ title }),
-    }) as Promise<{ id: string; title: string; createdAt: string; updatedAt: string }>,
+    });
+    return normalizeConversation(response.conversation);
+  },
 
-  getMessages: (conversationId: string) =>
-    fetchWithAuth(`/conversations/${conversationId}/messages`) as Promise<MessagesResponse>,
+  getMessages: async (conversationId: string) => {
+    const response = await fetchWithAuth<{ conversation: BackendConversation }>(
+      `/conversations/${conversationId}`
+    );
+    return {
+      messages: (response.conversation.messages || []).map(normalizeMessage),
+    } satisfies MessagesResponse;
+  },
 
   sendMessage: async (
     conversationId: string,
@@ -91,11 +155,21 @@ export const api = {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ conversationId, content, attachments }),
+      body: JSON.stringify({
+        conversationId,
+        content,
+        attachments: attachments?.map((attachment) => ({
+          type: 'image' as const,
+          url: attachment.uri,
+        })),
+      }),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to send message');
+      const error = await response
+        .json()
+        .catch(() => ({ message: 'Failed to send message' })) as BackendErrorResponse;
+      throw new Error(error.error || error.message || 'Failed to send message');
     }
 
     if (!response.body) {
@@ -104,16 +178,36 @@ export const api = {
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let done = false;
+    let buffer = '';
     let fullText = '';
 
-    while (!done) {
+    while (true) {
       const { value, done: doneReading } = await reader.read();
-      done = doneReading;
-      if (value) {
-        const chunk = decoder.decode(value, { stream: !done });
-        fullText += chunk;
-        onChunk?.(chunk);
+      if (doneReading) break;
+
+      if (!value) continue;
+
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split('\n\n');
+      buffer = events.pop() || '';
+
+      for (const event of events) {
+        const dataLine = event
+          .split('\n')
+          .find((line) => line.startsWith('data: '));
+
+        if (!dataLine) continue;
+
+        const payload = JSON.parse(dataLine.slice(6));
+
+        if (payload.type === 'content' && payload.delta) {
+          fullText += payload.delta;
+          onChunk?.(payload.delta);
+        }
+
+        if (payload.type === 'error') {
+          throw new Error(payload.error || 'Streaming request failed');
+        }
       }
     }
 

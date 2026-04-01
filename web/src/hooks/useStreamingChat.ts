@@ -1,7 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { useChatStore, Message } from '../stores/chatStore';
 import { api } from '../lib/api';
-import { wsClient, WebSocketMessage } from '../lib/websocket';
 
 export function useStreamingChat() {
   const {
@@ -17,7 +16,6 @@ export function useStreamingChat() {
   } = useChatStore();
 
   const abortControllerRef = useRef<AbortController | null>(null);
-  const useWebSocketRef = useRef(true);
 
   const sendMessage = useCallback(
     async (
@@ -43,60 +41,32 @@ export function useStreamingChat() {
       abortControllerRef.current = new AbortController();
 
       try {
-        if (useWebSocketRef.current) {
-          wsClient.onMessage(handleWebSocketMessage);
-          wsClient.send({
-            type: 'chat',
-            conversationId,
-            content,
-            attachments,
-          });
-        } else {
-          await api.sendMessage(
-            conversationId,
-            content,
-            attachments,
-            (chunk) => {
-              appendStreamingText(chunk);
-            }
-          );
-          commitStreamingMessage(conversationId);
-        }
+        await api.sendMessage(
+          conversationId,
+          content,
+          attachments,
+          (chunk) => {
+            appendStreamingText(chunk);
+          }
+        );
+        commitStreamingMessage(conversationId);
       } catch (error) {
         console.error('Send message error:', error);
+        addMessage(conversationId, {
+          id: `assistant-error-${Date.now()}`,
+          role: 'assistant',
+          content:
+            error instanceof Error
+              ? `I couldn't complete that request: ${error.message}`
+              : "I couldn't complete that request.",
+          createdAt: new Date().toISOString(),
+        });
         clearStreaming();
       } finally {
         setIsTyping(false);
       }
     },
     [addMessage, setStreamingText, appendStreamingText, setIsTyping, setStreamingMessageId, commitStreamingMessage, clearStreaming]
-  );
-
-  const handleWebSocketMessage = useCallback(
-    (message: WebSocketMessage) => {
-      switch (message.type) {
-        case 'token':
-          if (message.content) {
-            appendStreamingText(message.content);
-          }
-          break;
-        case 'done':
-          if (activeConversationId) {
-            commitStreamingMessage(activeConversationId);
-          }
-          setIsTyping(false);
-          break;
-        case 'tool_call':
-          console.log('Tool call received:', message);
-          break;
-        case 'error':
-          console.error('WebSocket error:', message.error);
-          setIsTyping(false);
-          clearStreaming();
-          break;
-      }
-    },
-    [activeConversationId, appendStreamingText, commitStreamingMessage, setIsTyping, clearStreaming]
   );
 
   const cancelStreaming = useCallback(() => {

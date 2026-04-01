@@ -20,10 +20,9 @@ const SYSTEM_PROMPT = `You are MiniMax AI, a helpful enterprise assistant. Be co
 
 const TOOLS: MiniMaxTool[] = [
   {
-    type: 'function',
     name: 'web_search',
     description: 'Search the web for current information',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         query: { type: 'string' },
@@ -33,10 +32,9 @@ const TOOLS: MiniMaxTool[] = [
     },
   },
   {
-    type: 'function',
     name: 'understand_image',
     description: 'Analyze and understand image content',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         image_url: { type: 'string' },
@@ -119,7 +117,12 @@ export async function chatRoutes(fastify: FastifyInstance) {
       // Build messages for MiniMax API
       const messages: MiniMaxMessage[] = conversation.messages.map(m => ({
         role: m.role,
-        content: m.content,
+        content: [
+          {
+            type: 'text',
+            text: m.content,
+          },
+        ],
       }));
 
       // Set up SSE streaming

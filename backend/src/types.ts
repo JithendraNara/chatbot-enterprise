@@ -31,14 +31,16 @@ export interface ChatMessageInput {
 
 export interface MiniMaxMessage {
   role: 'user' | 'assistant';
-  content: string;
+  content: Array<{
+    type: 'text';
+    text: string;
+  }>;
 }
 
 export interface MiniMaxTool {
-  type: 'function';
   name: string;
   description: string;
-  parameters: {
+  input_schema: {
     type: 'object';
     properties: Record<string, unknown>;
     required?: string[];
