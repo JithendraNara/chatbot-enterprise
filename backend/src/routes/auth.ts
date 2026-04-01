@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { authenticateRequest } from '../lib/auth.js';
+import { authenticateRequest, getAuthenticatedUserSnapshot } from '../lib/auth.js';
 import { supabaseAuth } from '../lib/supabase.js';
 
 const registerSchema = z.object({
@@ -117,7 +117,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   fastify.get('/me', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const user = await authenticateRequest(request, { requireActive: false });
+      const user = await getAuthenticatedUserSnapshot(request);
 
       return reply.send({
         success: true,

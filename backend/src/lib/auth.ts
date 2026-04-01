@@ -103,6 +103,53 @@ async function loadProfile(userId: string) {
   return data;
 }
 
+async function verifySupabaseUser(token: string) {
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+
+  if (error || !data.user) {
+    throw new Error('Invalid token');
+  }
+
+  return data.user;
+}
+
+function buildAuthenticatedUser(
+  token: string,
+  user: { id: string; email?: string | null },
+  profile?: { status?: ProfileStatus; global_role?: GlobalRole }
+): AuthenticatedUser {
+  return {
+    id: user.id,
+    email: user.email ?? null,
+    accessToken: token,
+    status: profile?.status ?? 'pending',
+    globalRole: profile?.global_role ?? 'user',
+  };
+}
+
+export async function getAuthenticatedUserSnapshot(request: FastifyRequest): Promise<AuthenticatedUser> {
+  const token = getRequestToken(request);
+
+  if (!token) {
+    throw new Error('No token provided');
+  }
+
+  const supabaseUser = await verifySupabaseUser(token);
+
+  try {
+    await ensureProfileRecord(supabaseUser);
+    await ensureBootstrapAdmin(supabaseUser);
+    const profile = await loadProfile(supabaseUser.id);
+    const user = buildAuthenticatedUser(token, supabaseUser, profile);
+    request.user = user;
+    return user;
+  } catch (error) {
+    const user = buildAuthenticatedUser(token, supabaseUser);
+    request.user = user;
+    return user;
+  }
+}
+
 export async function authenticateRequest(
   request: FastifyRequest,
   options: { requireActive?: boolean } = {}
@@ -114,23 +161,11 @@ export async function authenticateRequest(
     throw new Error('No token provided');
   }
 
-  const { data, error } = await supabaseAdmin.auth.getUser(token);
-
-  if (error || !data.user) {
-    throw new Error('Invalid token');
-  }
-
-  await ensureProfileRecord(data.user);
-  await ensureBootstrapAdmin(data.user);
-  const profile = await loadProfile(data.user.id);
-
-  const user: AuthenticatedUser = {
-    id: data.user.id,
-    email: data.user.email ?? null,
-    accessToken: token,
-    status: profile.status,
-    globalRole: profile.global_role,
-  };
+  const supabaseUser = await verifySupabaseUser(token);
+  await ensureProfileRecord(supabaseUser);
+  await ensureBootstrapAdmin(supabaseUser);
+  const profile = await loadProfile(supabaseUser.id);
+  const user = buildAuthenticatedUser(token, supabaseUser, profile);
 
   if (requireActive && profile.status !== 'active') {
     const authError = new Error(
