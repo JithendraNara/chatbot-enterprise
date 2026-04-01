@@ -1,29 +1,68 @@
-import { useDesktopNative } from './hooks/useDesktopNative';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import ChatPage from './pages/ChatPage';
+import ChatListPage from './pages/ChatListPage';
+import { useAuthStore } from './stores/authStore';
+import './index.css';
 
-function App() {
-  const { getPlatform, showNotifications } = useDesktopNative();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});
 
-  const handlePlatform = async () => {
-    const platform = await getPlatform();
-    alert(`Running on: ${platform}`);
-  };
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const token = useAuthStore((s) => s.token);
+  const location = useLocation();
+  if (!token) return <Navigate to="/login" state={{ from: location }} replace />;
+  return <>{children}</>;
+}
 
-  const handleNotify = async () => {
-    await showNotifications('MiniChat', 'Hello from the desktop app!');
-  };
+function AppRouter() {
+  const token = useAuthStore((s) => s.token);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!token) navigate('/login');
+    else navigate('/');
+  }, [token]);
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'system-ui' }}>
-      <h1>MiniChat Desktop</h1>
-      <p>Enterprise AI Chatbot - Tauri 2.x</p>
-      <div style={{ marginTop: '20px' }}>
-        <button onClick={handlePlatform} style={{ marginRight: '10px' }}>
-          Detect Platform
-        </button>
-        <button onClick={handleNotify}>Send Notification</button>
-      </div>
-    </div>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <ChatListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/chat/:id"
+        element={
+          <ProtectedRoute>
+            <ChatPage />
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AppRouter />
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+}
