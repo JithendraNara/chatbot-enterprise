@@ -18,19 +18,22 @@ const queryClient = new QueryClient({
 function AuthGate() {
   const router = useRouter();
   const segments = useSegments();
-  const { token, isLoading } = useAuth();
+  const { token, status, isLoading } = useAuth();
 
   React.useEffect(() => {
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inPendingScreen = segments[0] === 'pending-approval';
 
     if (!token && !inAuthGroup) {
       router.replace('/(auth)/login');
-    } else if (token && inAuthGroup) {
+    } else if (token && (status === 'pending' || status === 'suspended') && !inPendingScreen) {
+      router.replace('/pending-approval');
+    } else if (token && status === 'active' && (inAuthGroup || inPendingScreen)) {
       router.replace('/(tabs)');
     }
-  }, [token, isLoading, segments, router]);
+  }, [token, status, isLoading, segments, router]);
 
   return <Slot />;
 }

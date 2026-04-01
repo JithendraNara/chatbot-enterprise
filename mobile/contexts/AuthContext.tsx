@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import { getCurrentUser } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
 interface User {
@@ -8,11 +9,16 @@ interface User {
   name?: string;
 }
 
+type ApprovalStatus = 'pending' | 'active' | 'invited' | 'suspended' | null;
+
 interface AuthContextType {
   token: string | null;
   user: User | null;
+  status: ApprovalStatus;
+  globalRole: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<{ requiresEmailConfirmation: boolean }>;
+  refreshProfile: () => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
 }
@@ -36,6 +42,8 @@ function mapUser(supabaseUser: SupabaseUser | null): User | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [status, setStatus] = useState<ApprovalStatus>(null);
+  const [globalRole, setGlobalRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -44,19 +52,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const applySession = (session: Session | null) => {
       setToken(session?.access_token ?? null);
       setUser(mapUser(session?.user ?? null));
+      if (!session) {
+        setStatus(null);
+        setGlobalRole(null);
+      }
     };
 
     supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
       applySession(data.session);
-      setIsLoading(false);
+      const finish = async () => {
+        if (data.session) {
+          await refreshProfile(data.session.access_token);
+        }
+        setIsLoading(false);
+      };
+      void finish();
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       applySession(session);
-      setIsLoading(false);
+      const finish = async () => {
+        if (session) {
+          await refreshProfile(session.access_token);
+        }
+        setIsLoading(false);
+      };
+      void finish();
     });
 
     return () => {
@@ -64,6 +88,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, []);
+
+  const refreshProfile = async (providedToken?: string) => {
+    const currentToken = providedToken || token;
+    if (!currentToken) {
+      setStatus(null);
+      setGlobalRole(null);
+      return;
+    }
+
+    const profile = await getCurrentUser(currentToken);
+    setUser((current) =>
+      current
+        ? {
+            ...current,
+            email: profile.email || current.email,
+          }
+        : current
+    );
+    setStatus(profile.status);
+    setGlobalRole(profile.globalRole);
+  };
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -104,7 +149,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ token, user, signIn, signUp, logout, isLoading }}>
+    <AuthContext.Provider
+      value={{ token, user, status, globalRole, signIn, signUp, refreshProfile, logout, isLoading }}
+    >
       {children}
     </AuthContext.Provider>
   );

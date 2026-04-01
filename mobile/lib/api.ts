@@ -31,6 +31,16 @@ interface BackendConversationResponse {
   conversation: BackendConversation;
 }
 
+interface BackendAuthMeResponse {
+  user: {
+    id: string;
+    email: string | null;
+    status: 'pending' | 'active' | 'invited' | 'suspended';
+    globalRole: 'user' | 'admin' | 'support';
+    isActive: boolean;
+  };
+}
+
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const { token, ...fetchOptions } = options;
 
@@ -130,4 +140,12 @@ export async function deleteConversation(token: string, conversationId: string):
     method: 'DELETE',
     token,
   });
+}
+
+export async function getCurrentUser(token: string): Promise<BackendAuthMeResponse['user']> {
+  const response = await request<BackendAuthMeResponse>('/api/auth/me', {
+    token,
+  });
+
+  return response.user;
 }

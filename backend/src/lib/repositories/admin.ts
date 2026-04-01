@@ -1,26 +1,20 @@
-import type { AuthenticatedUser } from '../auth.js';
+import type { AuthenticatedUser, GlobalRole, ProfileStatus } from '../auth.js';
 import { supabaseAdmin } from '../supabase.js';
-import { ensureUserWorkspace } from './organizations.js';
-import { listConversationsForUser } from './conversations.js';
 
 interface ProfileRow {
   id: string;
   email: string | null;
   display_name: string | null;
-  global_role: 'user' | 'admin' | 'support';
-  status: 'active' | 'invited' | 'suspended';
-}
-
-interface MembershipRow {
-  user_id: string;
-  role: 'owner' | 'admin' | 'member' | 'viewer';
-  is_default: boolean;
+  global_role: GlobalRole;
+  status: ProfileStatus;
   created_at: string;
 }
 
 export interface AdminOverview {
-  organizationId: string;
-  memberCount: number;
+  userCount: number;
+  pendingUserCount: number;
+  activeUserCount: number;
+  suspendedUserCount: number;
   conversationCount: number;
   messageCount: number;
   aiRunCount: number;
@@ -31,72 +25,32 @@ export interface AdminUser {
   id: string;
   email: string;
   displayName: string | null;
-  globalRole: string;
-  membershipRole: string;
-  status: string;
-  isDefaultWorkspace: boolean;
-  joinedAt: string;
+  globalRole: GlobalRole;
+  status: ProfileStatus;
+  createdAt: string;
 }
 
 export interface AdminConversation {
   id: string;
   title: string;
   ownerUserId: string;
+  organizationId: string;
   updatedAt: number;
   createdAt: number;
 }
 
-async function getAdminContext(user: AuthenticatedUser) {
-  const { organizationId } = await ensureUserWorkspace(user);
-
-  const [{ data: membership, error: membershipError }, { data: profile, error: profileError }] =
-    await Promise.all([
-      supabaseAdmin
-        .from('organization_memberships')
-        .select('role')
-        .eq('organization_id', organizationId)
-        .eq('user_id', user.id)
-        .maybeSingle<{ role: 'owner' | 'admin' | 'member' | 'viewer' }>(),
-      supabaseAdmin
-        .from('profiles')
-        .select('global_role')
-        .eq('id', user.id)
-        .maybeSingle<{ global_role: 'user' | 'admin' | 'support' }>(),
-    ]);
-
-  if (membershipError) {
-    throw new Error(`Failed to load membership: ${membershipError.message}`);
+function requireGlobalAdmin(user: AuthenticatedUser) {
+  if (user.globalRole === 'admin' || user.globalRole === 'support') {
+    return;
   }
 
-  if (profileError) {
-    throw new Error(`Failed to load profile: ${profileError.message}`);
-  }
-
-  const isAdmin =
-    membership?.role === 'owner' ||
-    membership?.role === 'admin' ||
-    profile?.global_role === 'admin' ||
-    profile?.global_role === 'support';
-
-  if (!isAdmin) {
-    const error = new Error('Forbidden') as Error & { statusCode?: number };
-    error.statusCode = 403;
-    throw error;
-  }
-
-  return { organizationId };
+  const error = new Error('Forbidden') as Error & { statusCode?: number };
+  error.statusCode = 403;
+  throw error;
 }
 
-async function countTable(
-  table: string,
-  organizationId: string
-) {
-  const query = supabaseAdmin
-    .from(table)
-    .select('*', { count: 'exact', head: true })
-    .eq('organization_id', organizationId);
-
-  const { count, error } = await query;
+async function countTable(table: string) {
+  const { count, error } = await supabaseAdmin.from(table).select('*', { count: 'exact', head: true });
 
   if (error) {
     throw new Error(`Failed to count ${table}: ${error.message}`);
@@ -105,20 +59,47 @@ async function countTable(
   return count || 0;
 }
 
-export async function getAdminOverview(user: AuthenticatedUser): Promise<AdminOverview> {
-  const { organizationId } = await getAdminContext(user);
+async function countProfilesByStatus(status: ProfileStatus) {
+  const { count, error } = await supabaseAdmin
+    .from('profiles')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', status);
 
-  const [memberCount, conversationCount, messageCount, aiRunCount, memoryCount] = await Promise.all([
-    countTable('organization_memberships', organizationId),
-    countTable('conversations', organizationId),
-    countTable('messages', organizationId),
-    countTable('ai_runs', organizationId),
-    countTable('memories', organizationId),
+  if (error) {
+    throw new Error(`Failed to count profiles (${status}): ${error.message}`);
+  }
+
+  return count || 0;
+}
+
+export async function getAdminOverview(user: AuthenticatedUser): Promise<AdminOverview> {
+  requireGlobalAdmin(user);
+
+  const [
+    userCount,
+    pendingUserCount,
+    activeUserCount,
+    suspendedUserCount,
+    conversationCount,
+    messageCount,
+    aiRunCount,
+    memoryCount,
+  ] = await Promise.all([
+    countTable('profiles'),
+    countProfilesByStatus('pending'),
+    countProfilesByStatus('active'),
+    countProfilesByStatus('suspended'),
+    countTable('conversations'),
+    countTable('messages'),
+    countTable('ai_runs'),
+    countTable('memories'),
   ]);
 
   return {
-    organizationId,
-    memberCount,
+    userCount,
+    pendingUserCount,
+    activeUserCount,
+    suspendedUserCount,
     conversationCount,
     messageCount,
     aiRunCount,
@@ -127,64 +108,34 @@ export async function getAdminOverview(user: AuthenticatedUser): Promise<AdminOv
 }
 
 export async function listAdminUsers(user: AuthenticatedUser): Promise<AdminUser[]> {
-  const { organizationId } = await getAdminContext(user);
+  requireGlobalAdmin(user);
 
-  const { data: memberships, error: membershipError } = await supabaseAdmin
-    .from('organization_memberships')
-    .select('user_id, role, is_default, created_at')
-    .eq('organization_id', organizationId)
-    .returns<MembershipRow[]>();
-
-  if (membershipError) {
-    throw new Error(`Failed to load memberships: ${membershipError.message}`);
-  }
-
-  const userIds = (memberships || []).map((membership) => membership.user_id);
-
-  if (userIds.length === 0) {
-    return [];
-  }
-
-  const { data: profiles, error: profilesError } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('profiles')
-    .select('id, email, display_name, global_role, status')
-    .in('id', userIds)
+    .select('id, email, display_name, global_role, status, created_at')
+    .order('created_at', { ascending: false })
     .returns<ProfileRow[]>();
 
-  if (profilesError) {
-    throw new Error(`Failed to load profiles: ${profilesError.message}`);
+  if (error) {
+    throw new Error(`Failed to load profiles: ${error.message}`);
   }
 
-  const profileMap = new Map((profiles || []).map((profile) => [profile.id, profile]));
-
-  const users = (memberships || [])
-    .map((membership): AdminUser | null => {
-      const profile = profileMap.get(membership.user_id);
-      if (!profile) return null;
-
-      return {
-        id: profile.id,
-        email: profile.email || '',
-        displayName: profile.display_name,
-        globalRole: profile.global_role,
-        membershipRole: membership.role,
-        status: profile.status,
-        isDefaultWorkspace: membership.is_default,
-        joinedAt: membership.created_at,
-      } satisfies AdminUser;
-    })
-    .filter((value): value is AdminUser => value !== null);
-
-  return users;
+  return (data || []).map((profile) => ({
+    id: profile.id,
+    email: profile.email || '',
+    displayName: profile.display_name,
+    globalRole: profile.global_role,
+    status: profile.status,
+    createdAt: profile.created_at,
+  }));
 }
 
 export async function listAdminConversations(user: AuthenticatedUser): Promise<AdminConversation[]> {
-  const { organizationId } = await getAdminContext(user);
+  requireGlobalAdmin(user);
 
   const { data, error } = await supabaseAdmin
     .from('conversations')
-    .select('id, title, user_id, created_at, updated_at')
-    .eq('organization_id', organizationId)
+    .select('id, title, user_id, organization_id, created_at, updated_at')
     .order('updated_at', { ascending: false })
     .limit(50)
     .returns<
@@ -192,6 +143,7 @@ export async function listAdminConversations(user: AuthenticatedUser): Promise<A
         id: string;
         title: string;
         user_id: string;
+        organization_id: string;
         created_at: string;
         updated_at: string;
       }>
@@ -205,7 +157,47 @@ export async function listAdminConversations(user: AuthenticatedUser): Promise<A
     id: conversation.id,
     title: conversation.title,
     ownerUserId: conversation.user_id,
+    organizationId: conversation.organization_id,
     createdAt: new Date(conversation.created_at).getTime(),
     updatedAt: new Date(conversation.updated_at).getTime(),
   }));
+}
+
+export async function updateAdminUserStatus(
+  actor: AuthenticatedUser,
+  userId: string,
+  status: Extract<ProfileStatus, 'pending' | 'active' | 'suspended'>
+) {
+  requireGlobalAdmin(actor);
+
+  const { data, error } = await supabaseAdmin
+    .from('profiles')
+    .update({ status })
+    .eq('id', userId)
+    .select('id, email, display_name, global_role, status, created_at')
+    .single<ProfileRow>();
+
+  if (error || !data) {
+    throw new Error(`Failed to update user status: ${error?.message || 'missing row'}`);
+  }
+
+  await supabaseAdmin.from('admin_audit_logs').insert({
+    actor_user_id: actor.id,
+    action: `user.status.${status}`,
+    entity_type: 'profile',
+    entity_id: userId,
+    metadata: {
+      actor_email: actor.email,
+      target_status: status,
+    },
+  });
+
+  return {
+    id: data.id,
+    email: data.email || '',
+    displayName: data.display_name,
+    globalRole: data.global_role,
+    status: data.status,
+    createdAt: data.created_at,
+  } satisfies AdminUser;
 }

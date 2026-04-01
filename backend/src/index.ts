@@ -64,13 +64,7 @@ async function start() {
     // Register chat routes (with JWT authentication)
     fastify.register(async (instance) => {
       instance.addHook('onRequest', async (request) => {
-        try {
-          await authenticateRequest(request);
-        } catch {
-          const error = new Error('Unauthorized') as Error & { statusCode?: number };
-          error.statusCode = 401;
-          throw error;
-        }
+        await authenticateRequest(request);
       });
 
       await instance.register(chatRoutes, { prefix: '/api/chat' });
@@ -79,7 +73,7 @@ async function start() {
     });
 
     // Global error handler
-    fastify.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
+    fastify.setErrorHandler((error: Error & { statusCode?: number; code?: string }, request, reply) => {
       fastify.log.error({ error }, 'Request error');
 
       if ('validation' in error) {
@@ -92,6 +86,7 @@ async function start() {
       const statusCode = error.statusCode || 500;
       return reply.status(statusCode).send({
         error: error.message || 'Internal server error',
+        code: error.code,
       });
     });
 

@@ -1,9 +1,15 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
 import {
   getAdminOverview,
   listAdminConversations,
   listAdminUsers,
+  updateAdminUserStatus,
 } from '../lib/repositories/admin.js';
+
+const updateUserStatusSchema = z.object({
+  status: z.enum(['pending', 'active', 'suspended']),
+});
 
 export async function adminRoutes(fastify: FastifyInstance) {
   fastify.get('/overview', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -35,4 +41,26 @@ export async function adminRoutes(fastify: FastifyInstance) {
       return reply.status(statusCode).send({ error: (error as Error).message });
     }
   });
+
+  fastify.patch(
+    '/users/:id/status',
+    async (
+      request: FastifyRequest<{ Params: { id: string } }>,
+      reply: FastifyReply
+    ) => {
+      try {
+        const { id } = request.params;
+        const body = updateUserStatusSchema.parse(request.body);
+        const user = await updateAdminUserStatus(request.user, id, body.status);
+        return reply.send({ success: true, user });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return reply.status(400).send({ error: 'Invalid input', details: error.errors });
+        }
+
+        const statusCode = (error as Error & { statusCode?: number }).statusCode || 500;
+        return reply.status(statusCode).send({ error: (error as Error).message });
+      }
+    }
+  );
 }

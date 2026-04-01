@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { authenticateRequest } from '../lib/auth.js';
 import { supabaseAuth } from '../lib/supabase.js';
 
 const registerSchema = z.object({
@@ -112,5 +113,29 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   fastify.post('/logout', async (request: FastifyRequest, reply: FastifyReply) => {
     return reply.send({ success: true });
+  });
+
+  fastify.get('/me', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const user = await authenticateRequest(request, { requireActive: false });
+
+      return reply.send({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          status: user.status,
+          globalRole: user.globalRole,
+          isActive: user.status === 'active',
+        },
+      });
+    } catch (error) {
+      const statusCode = (error as Error & { statusCode?: number }).statusCode || 401;
+      const code = (error as Error & { code?: string }).code;
+      return reply.status(statusCode).send({
+        error: (error as Error).message || 'Unauthorized',
+        code,
+      });
+    }
   });
 }

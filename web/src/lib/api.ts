@@ -29,8 +29,10 @@ interface MessagesResponse {
 
 interface AdminOverviewResponse {
   overview: {
-    organizationId: string;
-    memberCount: number;
+    userCount: number;
+    pendingUserCount: number;
+    activeUserCount: number;
+    suspendedUserCount: number;
     conversationCount: number;
     messageCount: number;
     aiRunCount: number;
@@ -44,10 +46,8 @@ interface AdminUsersResponse {
     email: string;
     displayName: string | null;
     globalRole: string;
-    membershipRole: string;
     status: string;
-    isDefaultWorkspace: boolean;
-    joinedAt: string;
+    createdAt: string;
   }[];
 }
 
@@ -182,6 +182,12 @@ export const api = {
 
   getAdminConversations: () =>
     fetchWithAuth<AdminConversationsResponse>('/admin/conversations'),
+
+  updateAdminUserStatus: (userId: string, status: 'pending' | 'active' | 'suspended') =>
+    fetchWithAuth<{ user: AdminUsersResponse['users'][number] }>(`/admin/users/${userId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
 
   sendMessage: async (
     conversationId: string,

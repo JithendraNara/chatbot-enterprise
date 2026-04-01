@@ -3,18 +3,26 @@ import { ReactNode, useEffect } from 'react';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
+const AUTH_API_BASE =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') || '/api';
+
 interface User {
   id: string;
   email: string;
   name?: string;
 }
 
+type ApprovalStatus = 'pending' | 'active' | 'invited' | 'suspended' | null;
+
 interface AuthState {
   initialized: boolean;
   token: string | null;
   user: User | null;
+  status: ApprovalStatus;
+  globalRole: string | null;
   setSession: (session: Session | null) => void;
   setInitialized: (initialized: boolean) => void;
+  refreshProfile: () => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: () => boolean;
 }
@@ -36,18 +44,70 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialized: false,
   token: null,
   user: null,
+  status: null,
+  globalRole: null,
 
   setSession: (session) =>
     set({
       token: session?.access_token ?? null,
       user: mapUser(session?.user ?? null),
+      status: session ? get().status : null,
+      globalRole: session ? get().globalRole : null,
     }),
 
   setInitialized: (initialized) => set({ initialized }),
 
+  refreshProfile: async () => {
+    const token = get().token;
+
+    if (!token) {
+      set({ status: null, globalRole: null });
+      return;
+    }
+
+    const response = await fetch(`${AUTH_API_BASE}/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const body = await response
+      .json()
+      .catch(() => ({ error: 'Failed to load profile' })) as {
+        error?: string;
+        code?: string;
+        user?: {
+          id: string;
+          email: string;
+          status: ApprovalStatus;
+          globalRole: string | null;
+        };
+      };
+
+    if (!response.ok || !body.user) {
+      if (response.status === 401) {
+        await supabase.auth.signOut();
+        set({ token: null, user: null, status: null, globalRole: null });
+        return;
+      }
+
+      throw new Error(body.error || 'Failed to load profile');
+    }
+
+    set({
+      user: {
+        id: body.user.id,
+        email: body.user.email,
+        name: get().user?.name,
+      },
+      status: body.user.status,
+      globalRole: body.user.globalRole,
+    });
+  },
+
   logout: async () => {
     await supabase.auth.signOut();
-    set({ token: null, user: null });
+    set({ token: null, user: null, status: null, globalRole: null });
   },
 
   isAuthenticated: () => !!get().token,
@@ -60,14 +120,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
       useAuthStore.getState().setSession(data.session);
-      useAuthStore.getState().setInitialized(true);
+      const finish = async () => {
+        if (data.session) {
+          await useAuthStore.getState().refreshProfile();
+        }
+        useAuthStore.getState().setInitialized(true);
+      };
+      void finish();
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       useAuthStore.getState().setSession(session);
-      useAuthStore.getState().setInitialized(true);
+      const finish = async () => {
+        if (session) {
+          await useAuthStore.getState().refreshProfile();
+        } else {
+          useAuthStore.setState({ status: null, globalRole: null });
+        }
+        useAuthStore.getState().setInitialized(true);
+      };
+      void finish();
     });
 
     return () => {

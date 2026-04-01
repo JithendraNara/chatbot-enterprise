@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 
 interface AdminOverview {
-  organizationId: string;
-  memberCount: number;
+  userCount: number;
+  pendingUserCount: number;
+  activeUserCount: number;
+  suspendedUserCount: number;
   conversationCount: number;
   messageCount: number;
   aiRunCount: number;
@@ -15,10 +17,8 @@ interface AdminUser {
   email: string;
   displayName: string | null;
   globalRole: string;
-  membershipRole: string;
   status: string;
-  isDefaultWorkspace: boolean;
-  joinedAt: string;
+  createdAt: string;
 }
 
 interface AdminConversation {
@@ -35,6 +35,7 @@ export default function AdminPage() {
   const [conversations, setConversations] = useState<AdminConversation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUpdatingUserId, setIsUpdatingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,7 +85,10 @@ export default function AdminPage() {
 
   const statCards = overview
     ? [
-        ['Members', overview.memberCount],
+        ['Users', overview.userCount],
+        ['Pending', overview.pendingUserCount],
+        ['Active', overview.activeUserCount],
+        ['Suspended', overview.suspendedUserCount],
         ['Conversations', overview.conversationCount],
         ['Messages', overview.messageCount],
         ['AI Runs', overview.aiRunCount],
@@ -92,17 +96,33 @@ export default function AdminPage() {
       ]
     : [];
 
+  const updateUserStatus = async (userId: string, status: 'pending' | 'active' | 'suspended') => {
+    setIsUpdatingUserId(userId);
+    setError(null);
+
+    try {
+      const response = await api.updateAdminUserStatus(userId, status);
+      setUsers((current) =>
+        current.map((user) => (user.id === userId ? response.user : user))
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update user');
+    } finally {
+      setIsUpdatingUserId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-6xl mx-auto space-y-8">
         <div>
           <h1 className="text-3xl font-bold">Admin</h1>
           <p className="text-text-secondary mt-2">
-            Workspace overview for organization {overview?.organizationId}
+            Global access control and platform activity
           </p>
         </div>
 
-        <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
+        <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-4">
           {statCards.map(([label, value]) => (
             <div key={label} className="bg-card border border-border-color rounded-2xl p-5">
               <p className="text-sm text-text-secondary">{label}</p>
@@ -121,9 +141,10 @@ export default function AdminPage() {
                 <tr>
                   <th className="px-5 py-3">Email</th>
                   <th className="px-5 py-3">Name</th>
-                  <th className="px-5 py-3">Role</th>
                   <th className="px-5 py-3">Global</th>
                   <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Created</th>
+                  <th className="px-5 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -131,9 +152,34 @@ export default function AdminPage() {
                   <tr key={user.id} className="border-t border-border-color">
                     <td className="px-5 py-3">{user.email}</td>
                     <td className="px-5 py-3">{user.displayName || '—'}</td>
-                    <td className="px-5 py-3">{user.membershipRole}</td>
                     <td className="px-5 py-3">{user.globalRole}</td>
                     <td className="px-5 py-3">{user.status}</td>
+                    <td className="px-5 py-3">{new Date(user.createdAt).toLocaleString()}</td>
+                    <td className="px-5 py-3">
+                      <div className="flex gap-2">
+                        <button
+                          disabled={isUpdatingUserId === user.id || user.status === 'active'}
+                          onClick={() => void updateUserStatus(user.id, 'active')}
+                          className="px-3 py-1 rounded-lg bg-accent text-white disabled:opacity-40"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          disabled={isUpdatingUserId === user.id || user.status === 'pending'}
+                          onClick={() => void updateUserStatus(user.id, 'pending')}
+                          className="px-3 py-1 rounded-lg bg-card border border-border-color disabled:opacity-40"
+                        >
+                          Pending
+                        </button>
+                        <button
+                          disabled={isUpdatingUserId === user.id || user.status === 'suspended'}
+                          onClick={() => void updateUserStatus(user.id, 'suspended')}
+                          className="px-3 py-1 rounded-lg bg-card border border-border-color disabled:opacity-40"
+                        >
+                          Suspend
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
