@@ -1,9 +1,20 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, MessageCircle, Trash2 } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  MessageCircle,
+  Trash2,
+  PanelLeftOpen,
+  Settings2,
+  Shapes,
+  Library,
+  ChevronRight,
+} from 'lucide-react';
 import { clsx } from 'clsx';
 import { useChatStore, Conversation } from '../stores/chatStore';
 import { api } from '../lib/api';
+import { useAuthStore } from '../stores/authStore';
 
 export default function ChatList() {
   const navigate = useNavigate();
@@ -14,6 +25,7 @@ export default function ChatList() {
     addConversation,
     deleteConversation,
   } = useChatStore();
+  const { user, globalRole } = useAuthStore();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -105,15 +117,13 @@ export default function ChatList() {
 
   return (
     <>
-      {/* Mobile toggle button */}
       <button
-        className="md:hidden fixed top-4 left-4 z-50 p-2 bg-card rounded-lg"
+        className="md:hidden fixed top-5 left-5 z-50 h-11 w-11 rounded-2xl glass-panel flex items-center justify-center"
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
       >
-        <MessageCircle size={20} />
+        <PanelLeftOpen size={18} />
       </button>
 
-      {/* Overlay */}
       {isSidebarOpen && (
         <div
           className="md:hidden fixed inset-0 bg-black/50 z-40"
@@ -121,92 +131,110 @@ export default function ChatList() {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={clsx(
-          'fixed md:static inset-y-0 left-0 z-40 w-72 bg-card border-r border-border-color flex flex-col',
+          'fixed md:static inset-y-0 left-0 z-40 w-[17rem] rail-panel flex flex-col',
           'transform transition-transform duration-300 ease-in-out',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         )}
       >
-        {/* Header */}
-        <div className="p-4 border-b border-border-color">
+        <div className="px-4 pt-6 pb-5 border-b border-white/6">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <p className="section-label mb-2">Operator Workspace</p>
+              <h1 className="text-[1.9rem] leading-8 font-semibold tracking-tight">MiniChat</h1>
+              <p className="text-sm text-text-secondary mt-2 max-w-xs">
+                Search, debug, and steer AI conversations from one command deck.
+              </p>
+            </div>
+            <div className="h-10 w-10 rounded-2xl bg-white/[0.04] text-accent flex items-center justify-center border border-white/8">
+              <MessageCircle size={17} />
+            </div>
+          </div>
+
           <button
             onClick={handleNewChat}
             disabled={isCreating}
             className={clsx(
-              'w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-medium transition-all',
-              'bg-accent text-white hover:bg-accent/90 disabled:opacity-50'
+              'w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl font-medium transition-all stitch-button disabled:opacity-50'
             )}
           >
             <Plus size={18} />
-            {isCreating ? 'Creating...' : 'New Chat'}
+            {isCreating ? 'Opening thread...' : 'New Thread'}
           </button>
 
-          {/* Search */}
-          <div className="relative mt-3">
+          <div className="relative mt-4">
             <Search
               size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary"
             />
             <input
               type="text"
-              placeholder="Search conversations..."
+              placeholder="Search title or content"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-background border border-border-color rounded-lg text-sm placeholder:text-text-secondary focus:outline-none focus:border-accent"
+              className="w-full pl-11 pr-4 py-3 sidebar-search rounded-2xl text-sm placeholder:text-text-secondary focus:outline-none focus:border-accent"
             />
           </div>
         </div>
 
-        {/* Conversation list */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="px-4 pt-4 pb-3 border-b border-white/6">
+          <div className="flex items-center justify-between text-xs text-text-secondary">
+            <span className="section-label">Conversations</span>
+            <span>{filteredConversations.length}</span>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto conversation-scroller px-2 py-3">
           {filteredConversations.length === 0 ? (
-            <div className="p-4 text-center text-text-secondary">
-              {searchQuery ? 'No conversations found' : 'No conversations yet'}
+            <div className="p-6 text-center text-text-secondary">
+              {searchQuery ? 'No matching threads' : 'No threads yet'}
             </div>
           ) : (
-            <div className="p-2">
+            <div className="space-y-2">
               {filteredConversations.map((conversation) => (
                 <div
                   key={conversation.id}
                   onClick={() => handleSelectConversation(conversation.id)}
                   className={clsx(
-                    'flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors group',
+                    'relative flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all group border',
                     activeConversationId === conversation.id
-                      ? 'bg-accent/20 border border-accent/50'
-                      : 'hover:bg-background'
+                      ? 'bg-white/[0.06] border-accent/30 shadow-[0_12px_28px_rgba(0,0,0,0.18)]'
+                      : 'bg-transparent border-transparent hover:bg-white/[0.03] hover:border-white/6'
                   )}
                 >
-                  {/* Avatar */}
+                  {activeConversationId === conversation.id && (
+                    <div className="absolute left-0 top-3 bottom-3 w-1 rounded-full bg-accent" />
+                  )}
+
                   <div
                     className={clsx(
-                      'w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium shrink-0',
+                      'w-11 h-11 rounded-2xl flex items-center justify-center text-sm font-medium shrink-0 border',
                       activeConversationId === conversation.id
-                        ? 'bg-accent text-white'
-                        : 'bg-background text-text-secondary'
+                        ? 'bg-accent/15 text-accent border-accent/20'
+                        : 'bg-white/[0.03] text-text-secondary border-white/6'
                     )}
                   >
                     {getInitials(conversation.title)}
                   </div>
 
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium truncate">{conversation.title}</span>
-                      <span className="text-xs text-text-secondary shrink-0 ml-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium truncate text-[0.95rem]">
+                        {conversation.title}
+                      </span>
+                      <span className="text-[11px] text-text-secondary shrink-0">
                         {formatTime(conversation.updatedAt)}
                       </span>
                     </div>
-                    <p className="text-sm text-text-secondary truncate">
+                    <p className="text-sm text-text-secondary truncate mt-1">
                       {getLastMessage(conversation)}
                     </p>
                   </div>
 
-                  {/* Delete button */}
                   <button
                     onClick={(e) => handleDeleteConversation(e, conversation.id)}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-background rounded transition-all shrink-0"
+                    className="opacity-0 group-hover:opacity-100 p-2 hover:bg-white/[0.06] rounded-xl transition-all shrink-0"
                   >
                     <Trash2 size={14} className="text-accent" />
                   </button>
@@ -214,6 +242,48 @@ export default function ChatList() {
               ))}
             </div>
           )}
+        </div>
+
+        <div className="px-4 py-4 border-t border-white/6 space-y-3">
+          <div className="space-y-1">
+            <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-2xl hover:bg-white/[0.04] text-sm text-text-secondary transition-colors">
+              <span className="flex items-center gap-3">
+                <Shapes size={15} />
+                Templates
+              </span>
+              <ChevronRight size={14} />
+            </button>
+            <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-2xl hover:bg-white/[0.04] text-sm text-text-secondary transition-colors">
+              <span className="flex items-center gap-3">
+                <Settings2 size={15} />
+                Settings
+              </span>
+              <ChevronRight size={14} />
+            </button>
+            <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-2xl hover:bg-white/[0.04] text-sm text-text-secondary transition-colors">
+              <span className="flex items-center gap-3">
+                <Library size={15} />
+                Library
+              </span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+
+          <div className="glass-panel rounded-[1.5rem] px-4 py-4">
+            <p className="text-sm font-medium text-white">Workspace Plan</p>
+            <p className="text-xs text-text-secondary mt-1">Desk access and admin controls enabled.</p>
+            <button className="mt-4 w-full rounded-2xl stitch-button py-2.5 text-sm font-medium">
+              Upgrade Now
+            </button>
+          </div>
+
+          <div className="glass-panel rounded-2xl px-4 py-3">
+            <p className="text-sm font-medium truncate">{user?.name || user?.email || 'Operator'}</p>
+            <div className="flex items-center justify-between mt-2 text-xs text-text-secondary">
+              <span>{globalRole === 'admin' || globalRole === 'support' ? 'Admin access' : 'Member access'}</span>
+              <span className="text-accent">Secure session</span>
+            </div>
+          </div>
         </div>
       </aside>
     </>

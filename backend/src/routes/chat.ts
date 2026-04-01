@@ -1,11 +1,15 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { v4 as uuidv4 } from 'uuid';
-import { conversationStore } from '../lib/conversation-store.js';
 import { rateLimiter } from '../lib/rate-limiter.js';
 import { createMiniMaxClient } from '../lib/minimax.js';
 import { MiniMaxMessage, MiniMaxTool } from '../types.js';
-import { Writable } from 'stream';
+import {
+  createConversationForUser,
+  getConversationForUser,
+  listMessagesForConversation,
+} from '../lib/repositories/conversations.js';
+import { createAssistantMessage, createUserMessage } from '../lib/repositories/messages.js';
+import { completeAiRun, createAiRun, failAiRun } from '../lib/repositories/ai-runs.js';
 
 const messageSchema = z.object({
   conversationId: z.string().optional(),
@@ -20,10 +24,9 @@ const SYSTEM_PROMPT = `You are MiniMax AI, a helpful enterprise assistant. Be co
 
 const TOOLS: MiniMaxTool[] = [
   {
-    type: 'function',
     name: 'web_search',
     description: 'Search the web for current information',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         query: { type: 'string' },
@@ -33,10 +36,9 @@ const TOOLS: MiniMaxTool[] = [
     },
   },
   {
-    type: 'function',
     name: 'understand_image',
     description: 'Analyze and understand image content',
-    parameters: {
+    input_schema: {
       type: 'object',
       properties: {
         image_url: { type: 'string' },
@@ -47,32 +49,15 @@ const TOOLS: MiniMaxTool[] = [
   },
 ];
 
-// Custom SSE reply stream
-class SSEReplyStream extends Writable {
-  private reply: FastifyReply;
-
-  constructor(reply: FastifyReply) {
-    super();
-    this.reply = reply;
-  }
-
-  _write(chunk: Buffer | string, _encoding: BufferEncoding, callback: () => void) {
-    this.reply.raw.write(chunk);
-    callback();
-  }
-}
-
 export async function chatRoutes(fastify: FastifyInstance) {
   const minimaxClient = createMiniMaxClient(
     process.env.MINIMAX_API_KEY || '',
     process.env.MINIMAX_API_HOST || 'https://api.minimax.io'
   );
 
-  // POST /api/chat/message - Send a message and stream response
   fastify.post('/message', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const decoded = request.user as { userId: string };
-      const userId = decoded.userId;
+      const userId = request.user.id;
 
       // Validate input
       const body = messageSchema.parse(request.body);
@@ -90,51 +75,49 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
       const remaining = rateLimiter.getRemaining(userId);
 
-      // Get or create conversation
       let conversationId = body.conversationId;
-      let conversation = conversationId ? conversationStore.get(conversationId) : undefined;
+      let conversation = conversationId
+        ? await getConversationForUser(conversationId, request.user)
+        : null;
 
-      // Verify conversation belongs to user or create new one
-      if (conversation) {
-        if (conversation.userId !== userId) {
-          return reply.status(403).send({ error: 'Access denied to this conversation' });
-        }
-      } else {
-        // Create new conversation if no ID provided
-        conversation = conversationStore.create(userId, `Chat ${new Date().toLocaleTimeString()}`);
+      if (!conversation) {
+        conversation = await createConversationForUser(
+          request.user,
+          `Chat ${new Date().toLocaleTimeString()}`
+        );
         conversationId = conversation.id;
       }
 
-      // Add user message to conversation
-      const userMessage = conversationStore.addMessage(conversationId!, {
-        role: 'user',
-        content: body.content,
-        attachments: body.attachments,
-      });
+      await createUserMessage(conversationId!, request.user, body.content, body.attachments);
+      const conversationMessages = await listMessagesForConversation(conversationId!, request.user);
 
-      if (!userMessage) {
-        return reply.status(500).send({ error: 'Failed to save message' });
-      }
-
-      // Build messages for MiniMax API
-      const messages: MiniMaxMessage[] = conversation.messages.map(m => ({
+      const messages: MiniMaxMessage[] = conversationMessages.map(m => ({
         role: m.role,
-        content: m.content,
+        content: [
+          {
+            type: 'text',
+            text: m.content,
+          },
+        ],
       }));
 
-      // Set up SSE streaming
       reply.header('Content-Type', 'text/event-stream');
       reply.header('Cache-Control', 'no-cache');
       reply.header('Connection', 'keep-alive');
 
-      // Send initial rate limit info
       reply.raw.write(`data: ${JSON.stringify({ type: 'rate_limit', remaining })}\n\n`);
 
+      const aiRun = await createAiRun({
+        organizationId: conversation.organizationId,
+        conversationId: conversation.id,
+        requestedBy: request.user.id,
+        model: 'MiniMax-M2.7',
+      });
+
       try {
-        // Stream response from MiniMax
         let assistantContent = '';
 
-        await minimaxClient.createMessage(
+        const result = await minimaxClient.createMessage(
           SYSTEM_PROMPT,
           messages,
           TOOLS,
@@ -144,24 +127,34 @@ export async function chatRoutes(fastify: FastifyInstance) {
           }
         );
 
-        // Save assistant response
-        const assistantMessage = conversationStore.addMessage(conversationId!, {
-          role: 'assistant',
-          content: assistantContent,
+        const assistantMessage = await createAssistantMessage(
+          conversationId!,
+          request.user,
+          assistantContent
+        );
+
+        await completeAiRun(aiRun.id, {
+          startedAt: aiRun.startedAt,
+          promptTokens: result.usage?.inputTokens,
+          completionTokens: result.usage?.outputTokens,
+          toolCalls: result.toolCalls,
         });
 
-        // Send completion event
         reply.raw.write(`data: ${JSON.stringify({
           type: 'message_complete',
-          messageId: assistantMessage?.id,
+          messageId: assistantMessage.id,
           conversationId,
         })}\n\n`);
 
         reply.raw.end();
       } catch (apiError) {
         fastify.log.error({ err: apiError }, 'MiniMax API error');
+        await failAiRun(
+          aiRun.id,
+          aiRun.startedAt,
+          apiError instanceof Error ? apiError.message : 'API call failed'
+        );
 
-        // Send error to client
         reply.raw.write(`data: ${JSON.stringify({
           type: 'error',
           error: apiError instanceof Error ? apiError.message : 'API call failed',
@@ -181,8 +174,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
   // GET /api/chat/rate-limit-status - Check rate limit status
   fastify.get('/rate-limit-status', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const decoded = request.user as { userId: string };
-      const userId = decoded.userId;
+      const userId = request.user.id;
 
       return reply.send({
         success: true,

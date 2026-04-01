@@ -1,10 +1,11 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import jwt from '@fastify/jwt';
 import websocket from '@fastify/websocket';
 import { authRoutes } from './routes/auth.js';
 import { chatRoutes } from './routes/chat.js';
 import { conversationRoutes } from './routes/conversations.js';
+import { authenticateRequest } from './lib/auth.js';
+import { adminRoutes } from './routes/admin.js';
 
 const fastify = Fastify({
   logger: {
@@ -18,13 +19,6 @@ async function start() {
     await fastify.register(cors, {
       origin: true,
       credentials: true,
-    });
-
-    // Register JWT
-    await fastify.register(jwt, {
-      secret: process.env.JWT_SECRET ?? (() => {
-        throw new Error('JWT_SECRET environment variable is required. Set it in backend/.env');
-      })(),
     });
 
     // Register WebSocket
@@ -70,47 +64,16 @@ async function start() {
     // Register chat routes (with JWT authentication)
     fastify.register(async (instance) => {
       instance.addHook('onRequest', async (request) => {
-        try {
-          // Check for token in cookie or Authorization header
-          let token: string | undefined;
-
-          const cookieHeader = request.headers.cookie;
-          if (cookieHeader) {
-            const cookies = Object.fromEntries(
-              cookieHeader.split('; ').map(c => {
-                const [key, ...val] = c.split('=');
-                return [key, val.join('=')];
-              })
-            );
-            token = cookies.token;
-          }
-
-          if (!token) {
-            const authHeader = request.headers.authorization;
-            if (authHeader && authHeader.startsWith('Bearer ')) {
-              token = authHeader.slice(7);
-            }
-          }
-
-          if (!token) {
-            throw new Error('No token provided');
-          }
-
-          const decoded = instance.jwt.verify(token);
-          request.user = decoded;
-        } catch (err) {
-          const error = new Error('Unauthorized') as Error & { statusCode?: number };
-          error.statusCode = 401;
-          throw error;
-        }
+        await authenticateRequest(request);
       });
 
       await instance.register(chatRoutes, { prefix: '/api/chat' });
       await instance.register(conversationRoutes, { prefix: '/api/conversations' });
+      await instance.register(adminRoutes, { prefix: '/api/admin' });
     });
 
     // Global error handler
-    fastify.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
+    fastify.setErrorHandler((error: Error & { statusCode?: number; code?: string }, request, reply) => {
       fastify.log.error({ error }, 'Request error');
 
       if ('validation' in error) {
@@ -123,6 +86,7 @@ async function start() {
       const statusCode = error.statusCode || 500;
       return reply.status(statusCode).send({
         error: error.message || 'Internal server error',
+        code: error.code,
       });
     });
 

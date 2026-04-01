@@ -64,3 +64,4 @@ temp/
 mobile/.expo/
 mobile/dist/
 mobile/assets/translated*
+.vercel

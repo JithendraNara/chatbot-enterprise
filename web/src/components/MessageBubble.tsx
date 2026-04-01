@@ -73,36 +73,46 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
   return (
     <div
       className={clsx(
-        'flex gap-3 p-4',
+        'flex gap-4 py-4',
         isUser ? 'flex-row-reverse' : 'flex-row'
       )}
     >
-      {/* Avatar */}
       <div
         className={clsx(
-          'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium shrink-0',
-          isUser ? 'bg-accent text-white' : 'bg-card text-text-secondary'
+          'w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-medium shrink-0 border',
+          isUser
+            ? 'bg-accent/15 text-accent border-accent/20'
+            : 'bg-white/[0.04] text-text-secondary border-white/8'
         )}
       >
-        {isUser ? 'U' : 'AI'}
+        {isUser ? 'You' : 'AI'}
       </div>
 
-      {/* Message content */}
       <div
         className={clsx(
-          'flex flex-col max-w-[75%]',
+          'flex flex-col max-w-[78%]',
           isUser ? 'items-end' : 'items-start'
         )}
       >
-        {/* Attachments */}
+        <div className="flex items-center gap-2 mb-2 text-xs text-text-secondary">
+          <span className="uppercase tracking-[0.16em]">{isUser ? 'Operator' : 'MiniChat'}</span>
+          <span className="opacity-40">•</span>
+          <span>
+            {new Date(message.createdAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </span>
+        </div>
+
         {message.attachments && message.attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {message.attachments.map((attachment, index) => (
               <div
                 key={index}
                 className={clsx(
-                  'flex items-center gap-2 p-2 rounded-lg bg-card',
-                  attachment.type.startsWith('image/') ? 'max-w-48' : ''
+                  'flex items-center gap-2 p-3 rounded-2xl border bg-white/[0.03]',
+                  attachment.type.startsWith('image/') ? 'max-w-52 border-white/8' : 'border-white/6'
                 )}
               >
                 {attachment.type.startsWith('image/') ? (
@@ -116,25 +126,16 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
           </div>
         )}
 
-        {/* Bubble */}
         <div
           className={clsx(
-            'p-3 rounded-2xl',
+            'p-4 md:p-5 rounded-[1.25rem] border backdrop-blur-xl',
             isUser
-              ? 'bg-accent text-white rounded-tr-md'
-              : 'bg-card text-text-primary rounded-tl-md'
+              ? 'bg-gradient-to-br from-[#ff9c84] to-[#f47748] text-[#3d1103] border-transparent shadow-[0_16px_40px_rgba(244,119,72,0.18)] rounded-tr-md'
+              : 'bg-[#1b1c20] text-text-primary border-white/8 rounded-tl-md'
           )}
         >
           {renderedContent}
         </div>
-
-        {/* Time */}
-        <span className="text-xs text-text-secondary mt-1">
-          {new Date(message.createdAt).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </span>
       </div>
     </div>
   );

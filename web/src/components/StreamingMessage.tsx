@@ -18,17 +18,20 @@ export default function StreamingMessage() {
   if (!streamingText && !isTyping) return null;
 
   return (
-    <div className="flex gap-3 p-4">
-      {/* Avatar */}
-      <div className="w-8 h-8 rounded-full bg-card text-text-secondary flex items-center justify-center text-sm font-medium shrink-0">
+    <div className="flex gap-4 py-4">
+      <div className="w-10 h-10 rounded-2xl bg-white/[0.04] border border-white/8 text-text-secondary flex items-center justify-center text-sm font-medium shrink-0">
         AI
       </div>
 
-      {/* Bubble */}
-      <div className="flex flex-col max-w-[75%]">
+      <div className="flex flex-col max-w-[78%]">
+        <div className="flex items-center gap-2 mb-2 text-xs text-text-secondary">
+          <span className="uppercase tracking-[0.16em]">MiniChat</span>
+          <span className="opacity-40">•</span>
+          <span>Streaming reply</span>
+        </div>
         <div
           className={clsx(
-            'p-3 rounded-2xl rounded-tl-md bg-card text-text-primary',
+            'p-4 md:p-5 rounded-[1.25rem] rounded-tl-md bg-[#1b1c20] border border-white/8 text-text-primary',
             'transition-all duration-150'
           )}
         >
@@ -66,8 +69,7 @@ export default function StreamingMessage() {
             </ReactMarkdown>
           </div>
 
-          {/* Blinking cursor */}
-          <span className="inline-block w-2 h-4 bg-accent ml-1 animate-pulse" />
+          <span className="inline-block w-2 h-4 bg-accent ml-1 animate-pulse rounded-sm" />
         </div>
       </div>
     </div>

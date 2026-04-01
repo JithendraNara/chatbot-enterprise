@@ -10,10 +10,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { register } from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const { signUp } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -40,10 +41,15 @@ export default function RegisterScreen() {
     setError(null);
 
     try {
-      await register(email.trim(), password);
-      router.replace('/(auth)/login');
+      const result = await signUp(email.trim(), password);
+
+      if (result.requiresEmailConfirmation) {
+        setError('Account created. Check your email to confirm your sign-in.');
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (err: any) {
-      if (err.response?.status === 409) {
+      if (typeof err?.message === 'string' && err.message.toLowerCase().includes('already')) {
         setError('An account with this email already exists');
       } else {
         setError('Registration failed. Please try again.');

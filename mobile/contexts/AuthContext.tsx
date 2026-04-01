@@ -1,72 +1,182 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import * as SecureStore from 'expo-secure-store';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import { getCurrentUser } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 interface User {
   id: string;
   email: string;
+  name?: string;
 }
+
+type ApprovalStatus = 'pending' | 'active' | 'invited' | 'suspended' | null;
 
 interface AuthContextType {
   token: string | null;
   user: User | null;
-  setAuth: (token: string, user: User) => void;
+  status: ApprovalStatus;
+  globalRole: string | null;
+  profileError: string | null;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<{ requiresEmailConfirmation: boolean }>;
+  refreshProfile: () => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function mapUser(supabaseUser: SupabaseUser | null): User | null {
+  if (!supabaseUser) return null;
+
+  return {
+    id: supabaseUser.id,
+    email: supabaseUser.email ?? '',
+    name:
+      (typeof supabaseUser.user_metadata?.name === 'string' && supabaseUser.user_metadata.name) ||
+      (typeof supabaseUser.user_metadata?.full_name === 'string' &&
+        supabaseUser.user_metadata.full_name) ||
+      undefined,
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [status, setStatus] = useState<ApprovalStatus>(null);
+  const [globalRole, setGlobalRole] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadStoredAuth();
+    let isMounted = true;
+
+    const applySession = (session: Session | null) => {
+      setToken(session?.access_token ?? null);
+      setUser(mapUser(session?.user ?? null));
+      if (!session) {
+        setStatus(null);
+        setGlobalRole(null);
+        setProfileError(null);
+      }
+    };
+
+    const syncProfile = async (session: Session | null) => {
+      try {
+        if (session) {
+          await refreshProfile(session.access_token);
+        }
+      } catch (error) {
+        console.error('Failed to refresh profile:', error);
+        if (isMounted) {
+          setStatus('pending');
+          setGlobalRole(null);
+          setProfileError(error instanceof Error ? error.message : 'Failed to verify access');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!isMounted) return;
+      applySession(data.session);
+      void syncProfile(data.session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      applySession(session);
+      void syncProfile(session);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const loadStoredAuth = async () => {
-    try {
-      const storedToken = await SecureStore.getItemAsync('auth_token');
-      const storedUser = await SecureStore.getItemAsync('auth_user');
-
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-      }
-    } catch (error) {
-      console.error('Failed to load auth from storage:', error);
-    } finally {
-      setIsLoading(false);
+  const refreshProfile = async (providedToken?: string) => {
+    const currentToken = providedToken || token;
+    if (!currentToken) {
+      setStatus(null);
+      setGlobalRole(null);
+      setProfileError(null);
+      return;
     }
+
+    const profile = await getCurrentUser(currentToken);
+    setUser((current) =>
+      current
+        ? {
+            ...current,
+            email: profile.email || current.email,
+          }
+        : current
+    );
+    setStatus(profile.status);
+    setGlobalRole(profile.globalRole);
+    setProfileError(null);
   };
 
-  const setAuth = async (newToken: string, newUser: User) => {
-    try {
-      await SecureStore.setItemAsync('auth_token', newToken);
-      await SecureStore.setItemAsync('auth_user', JSON.stringify(newUser));
-      setToken(newToken);
-      setUser(newUser);
-    } catch (error) {
-      console.error('Failed to store auth:', error);
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
       throw error;
     }
   };
 
+  const signUp = async (email: string, password: string) => {
+    const emailRedirectTo = process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL;
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        ...(emailRedirectTo ? { emailRedirectTo } : {}),
+        data: {
+          name: email.split('@')[0],
+        },
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    return {
+      requiresEmailConfirmation: !data.session,
+    };
+  };
+
   const logout = async () => {
-    try {
-      await SecureStore.deleteItemAsync('auth_token');
-      await SecureStore.deleteItemAsync('auth_user');
-      setToken(null);
-      setUser(null);
-    } catch (error) {
-      console.error('Failed to logout:', error);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
       throw error;
     }
   };
 
   return (
-    <AuthContext.Provider value={{ token, user, setAuth, logout, isLoading }}>
+    <AuthContext.Provider
+      value={{
+        token,
+        user,
+        status,
+        globalRole,
+        profileError,
+        signIn,
+        signUp,
+        refreshProfile,
+        logout,
+        isLoading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

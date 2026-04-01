@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useChatStore, Message } from '../stores/chat-store';
 import { useSession } from '../contexts/SessionContext';
-import { sendMessage as apiSendMessage } from '../lib/api';
+import { API_URL } from '../lib/api';
 
 interface UseStreamingChatOptions {
   conversationId: string;
@@ -100,7 +100,7 @@ export function useStreamingChat(conversationId: string) {
 
     let fullText = '';
 
-    const response = await fetch('http://localhost:3000/api/chat/message', {
+    const response = await fetch(`${API_URL}/api/chat/message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -141,11 +141,11 @@ export function useStreamingChat(conversationId: string) {
           }
           try {
             const parsed = JSON.parse(data);
-            if (parsed.token) {
-              fullText += parsed.token;
+            if (parsed.type === 'content' && parsed.delta) {
+              fullText += parsed.delta;
               onToken(fullText);
             }
-            if (parsed.tool_call) {
+            if (parsed.type === 'tool_call' && parsed.tool_call) {
               // Handle tool call
               const toolMessage: Message = {
                 id: Math.random().toString(36).substring(2, 15),
@@ -155,6 +155,9 @@ export function useStreamingChat(conversationId: string) {
                 toolCall: parsed.tool_call,
               };
               addMessage(conversationId, toolMessage);
+            }
+            if (parsed.type === 'error') {
+              throw new Error(parsed.error || 'Streaming request failed');
             }
           } catch (e) {
             // Ignore parse errors for incomplete JSON

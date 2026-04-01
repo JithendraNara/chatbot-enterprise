@@ -11,7 +11,11 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChatStore, Conversation } from '../../stores/chat-store';
-import { getConversations, deleteConversation as apiDeleteConversation } from '../../lib/api';
+import {
+  createConversation as apiCreateConversation,
+  deleteConversation as apiDeleteConversation,
+  getConversations,
+} from '../../lib/api';
 
 export default function ChatListScreen() {
   const router = useRouter();
@@ -48,9 +52,17 @@ export default function ChatListScreen() {
   };
 
   const handleCreateConversation = () => {
-    const store = useChatStore.getState();
-    const newId = store.createConversation();
-    router.push(`/chat/${newId}`);
+    if (!token) return;
+
+    void (async () => {
+      try {
+        const newConversation = await apiCreateConversation(token);
+        useChatStore.getState().addConversation(newConversation);
+        router.push(`/chat/${newConversation.id}`);
+      } catch (error) {
+        console.error('Failed to create conversation:', error);
+      }
+    })();
   };
 
   const handleDeleteConversation = (id: string) => {
