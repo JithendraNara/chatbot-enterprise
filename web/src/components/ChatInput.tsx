@@ -79,23 +79,19 @@ export default function ChatInput({ onSend, isLoading, disabled }: ChatInputProp
   };
 
   return (
-    <div className="border-t border-border-color bg-card p-4">
-      {/* Image previews */}
+    <div className="glass-panel rounded-[1.75rem] p-4 md:p-5">
       {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div className="flex flex-wrap gap-2 mb-4">
           {attachments.map((attachment, index) => (
-            <div
-              key={index}
-              className="relative group"
-            >
+            <div key={index} className="relative group">
               <img
                 src={attachment.uri}
                 alt={attachment.name}
-                className="w-16 h-16 object-cover rounded-lg"
+                className="w-20 h-20 object-cover rounded-2xl border border-white/8"
               />
               <button
                 onClick={() => removeAttachment(index)}
-                className="absolute -top-2 -right-2 p-1 bg-accent rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute -top-2 -right-2 p-1.5 bg-accent rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-[0_8px_20px_rgba(233,69,96,0.35)]"
               >
                 <X size={12} className="text-white" />
               </button>
@@ -106,14 +102,15 @@ export default function ChatInput({ onSend, isLoading, disabled }: ChatInputProp
 
       <div
         className={clsx(
-          'flex items-end gap-2 p-2 rounded-xl border transition-colors',
-          isFocused ? 'border-accent bg-background' : 'border-border-color bg-background'
+          'flex items-end gap-3 p-3 md:p-4 rounded-[1.5rem] border transition-all',
+          isFocused
+            ? 'border-accent bg-white/[0.05] shadow-[0_0_0_1px_rgba(233,69,96,0.18)]'
+            : 'border-white/8 bg-white/[0.03]'
         )}
       >
-        {/* Attachment button */}
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="p-2 text-text-secondary hover:text-accent transition-colors"
+          className="h-11 w-11 shrink-0 rounded-2xl bg-white/[0.04] text-text-secondary hover:text-accent hover:bg-white/[0.07] transition-colors flex items-center justify-center"
           disabled={disabled}
         >
           <Image size={20} />
@@ -135,21 +132,20 @@ export default function ChatInput({ onSend, isLoading, disabled }: ChatInputProp
           onKeyDown={handleKeyDown}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          placeholder="Type a message..."
+          placeholder="Ask for research, paste a brief, or drop an image for analysis…"
           rows={1}
-          className="flex-1 bg-transparent resize-none text-text-primary placeholder:text-text-secondary focus:outline-none max-h-36"
+          className="flex-1 bg-transparent resize-none text-text-primary placeholder:text-text-secondary focus:outline-none max-h-36 leading-6"
           disabled={disabled}
         />
 
-        {/* Send button */}
         <button
           onClick={handleSend}
           disabled={(!input.trim() && attachments.length === 0) || isLoading || disabled}
           className={clsx(
-            'p-2 rounded-lg transition-all',
+            'h-11 w-11 shrink-0 rounded-2xl transition-all flex items-center justify-center',
             input.trim() || attachments.length > 0
-              ? 'bg-accent text-white hover:bg-accent/90'
-              : 'bg-background text-text-secondary',
+              ? 'bg-accent text-white hover:bg-accent/90 shadow-[0_10px_30px_rgba(233,69,96,0.28)]'
+              : 'bg-white/[0.04] text-text-secondary',
             (isLoading || disabled) && 'opacity-50 cursor-not-allowed'
           )}
         >
@@ -157,10 +153,10 @@ export default function ChatInput({ onSend, isLoading, disabled }: ChatInputProp
         </button>
       </div>
 
-      {/* Helper text */}
-      <p className="text-xs text-text-secondary mt-2 text-center">
-        Press Enter to send, Shift+Enter for new line
-      </p>
+      <div className="flex items-center justify-between gap-4 mt-3 text-xs text-text-secondary px-1">
+        <p>Enter to send. Shift + Enter for a new line.</p>
+        <p className="hidden md:block">Uploads are sent with the thread context.</p>
+      </div>
     </div>
   );
 }

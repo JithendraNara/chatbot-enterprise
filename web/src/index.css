@@ -28,6 +28,11 @@ html {
 
 body {
   @apply bg-background text-text-primary antialiased;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(233, 69, 96, 0.16), transparent 28%),
+    radial-gradient(circle at top right, rgba(130, 90, 255, 0.08), transparent 24%),
+    linear-gradient(180deg, #0d1024 0%, #0a0d1f 100%);
 }
 
 /* Streaming cursor animation */
@@ -42,6 +47,70 @@ body {
 
 .streaming-cursor {
   animation: blink 1s infinite;
+}
+
+.app-shell {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)),
+    radial-gradient(circle at center, rgba(233, 69, 96, 0.08), transparent 38%);
+}
+
+.glass-panel {
+  background: rgba(18, 22, 45, 0.72);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.rail-panel {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
+    rgba(11, 14, 30, 0.88);
+  backdrop-filter: blur(18px);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.thread-panel {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0)),
+    rgba(11, 14, 30, 0.62);
+  backdrop-filter: blur(14px);
+}
+
+.accent-orb {
+  position: absolute;
+  inset: auto auto 18% 58%;
+  width: 24rem;
+  height: 24rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(233, 69, 96, 0.18), transparent 68%);
+  pointer-events: none;
+  filter: blur(12px);
+}
+
+.soft-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.conversation-scroller {
+  mask-image: linear-gradient(to bottom, transparent, black 4%, black 96%, transparent);
+}
+
+.thread-scroller {
+  mask-image: linear-gradient(to bottom, transparent, black 3%, black 97%, transparent);
+}
+
+.section-label {
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  color: #8f94b6;
 }
 
 /* Smooth transitions */
