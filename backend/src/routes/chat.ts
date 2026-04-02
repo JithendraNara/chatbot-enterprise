@@ -92,7 +92,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
 
       // Get or create conversation
       let conversationId = body.conversationId;
-      let conversation = conversationId ? conversationStore.get(conversationId) : undefined;
+      let conversation = conversationId ? await conversationStore.get(conversationId) : undefined;
 
       // Verify conversation belongs to user or create new one
       if (conversation) {
@@ -101,12 +101,12 @@ export async function chatRoutes(fastify: FastifyInstance) {
         }
       } else {
         // Create new conversation if no ID provided
-        conversation = conversationStore.create(userId, `Chat ${new Date().toLocaleTimeString()}`);
+        conversation = await conversationStore.create(userId, `Chat ${new Date().toLocaleTimeString()}`);
         conversationId = conversation.id;
       }
 
       // Add user message to conversation
-      const userMessage = conversationStore.addMessage(conversationId!, {
+      const userMessage = await conversationStore.addMessage(conversationId!, {
         role: 'user',
         content: body.content,
         attachments: body.attachments,
@@ -145,7 +145,7 @@ export async function chatRoutes(fastify: FastifyInstance) {
         );
 
         // Save assistant response
-        const assistantMessage = conversationStore.addMessage(conversationId!, {
+        const assistantMessage = await conversationStore.addMessage(conversationId!, {
           role: 'assistant',
           content: assistantContent,
         });

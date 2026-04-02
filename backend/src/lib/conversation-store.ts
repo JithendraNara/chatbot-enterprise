@@ -1,73 +1,84 @@
 import { Conversation, Message } from '../types.js';
-import { v4 as uuidv4 } from 'uuid';
+import { db } from './supabase.js';
 
-class ConversationStore {
-  private conversations: Map<string, Conversation> = new Map();
-  private userConversations: Map<string, Set<string>> = new Map();
-
-  create(userId: string, title?: string): Conversation {
-    const id = uuidv4();
-    const now = Date.now();
-    const conversation: Conversation = {
-      id,
-      userId,
-      title: title || `Conversation ${new Date().toLocaleDateString()}`,
+export const conversationStore = {
+  async create(userId: string, title?: string): Promise<Conversation> {
+    const data = await db.createConversation(userId, title);
+    return {
+      id: data.id,
+      userId: data.user_id,
+      title: data.title,
       messages: [],
-      createdAt: now,
-      updatedAt: now,
+      createdAt: new Date(data.created_at).getTime(),
+      updatedAt: new Date(data.updated_at).getTime(),
     };
-    this.conversations.set(id, conversation);
+  },
 
-    if (!this.userConversations.has(userId)) {
-      this.userConversations.set(userId, new Set());
+  async get(id: string): Promise<Conversation | undefined> {
+    try {
+      const data = await db.getConversation(id);
+      if (!data) return undefined;
+
+      return {
+        id: data.id,
+        userId: data.user_id,
+        title: data.title,
+        messages: (data.messages || []).map((m: any) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          timestamp: new Date(m.created_at).getTime(),
+          attachments: m.attachments,
+        })),
+        createdAt: new Date(data.created_at).getTime(),
+        updatedAt: new Date(data.updated_at).getTime(),
+      };
+    } catch {
+      return undefined;
     }
-    this.userConversations.get(userId)!.add(id);
+  },
 
-    return conversation;
-  }
+  async getByUser(userId: string): Promise<Conversation[]> {
+    const data = await db.getConversationsByUser(userId);
+    return data.map((c: any) => ({
+      id: c.id,
+      userId: c.user_id,
+      title: c.title,
+      messages: [], // Lazy load
+      createdAt: new Date(c.created_at).getTime(),
+      updatedAt: new Date(c.updated_at).getTime(),
+    }));
+  },
 
-  get(id: string): Conversation | undefined {
-    return this.conversations.get(id);
-  }
+  async addMessage(
+    conversationId: string,
+    message: Omit<Message, 'id' | 'timestamp'>
+  ): Promise<Message | undefined> {
+    try {
+      const data = await db.createMessage(
+        conversationId,
+        message.role,
+        message.content,
+        message.attachments
+      );
+      return {
+        id: data.id,
+        role: data.role,
+        content: data.content,
+        timestamp: new Date(data.created_at).getTime(),
+        attachments: data.attachments as any,
+      };
+    } catch {
+      return undefined;
+    }
+  },
 
-  getByUser(userId: string): Conversation[] {
-    const conversationIds = this.userConversations.get(userId);
-    if (!conversationIds) return [];
-
-    return Array.from(conversationIds)
-      .map(id => this.conversations.get(id))
-      .filter((c): c is Conversation => c !== undefined)
-      .sort((a, b) => b.updatedAt - a.updatedAt);
-  }
-
-  addMessage(conversationId: string, message: Omit<Message, 'id' | 'timestamp'>): Message | undefined {
-    const conversation = this.conversations.get(conversationId);
-    if (!conversation) return undefined;
-
-    const newMessage: Message = {
-      ...message,
-      id: uuidv4(),
-      timestamp: Date.now(),
-    };
-    conversation.messages.push(newMessage);
-    conversation.updatedAt = Date.now();
-
-    return newMessage;
-  }
-
-  delete(id: string, userId: string): boolean {
-    const conversation = this.conversations.get(id);
-    if (!conversation || conversation.userId !== userId) return false;
-
-    this.conversations.delete(id);
-    this.userConversations.get(userId)?.delete(id);
-    return true;
-  }
-
-  clear(): void {
-    this.conversations.clear();
-    this.userConversations.clear();
-  }
-}
-
-export const conversationStore = new ConversationStore();
+  async delete(id: string, userId: string): Promise<boolean> {
+    try {
+      await db.deleteConversation(id);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+};

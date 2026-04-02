@@ -11,7 +11,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
   fastify.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const decoded = request.user as { userId: string };
-      const conversations = conversationStore.getByUser(decoded.userId);
+      const conversations = await conversationStore.getByUser(decoded.userId);
 
       return reply.send({
         success: true,
@@ -34,7 +34,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       const decoded = request.user as { userId: string };
       const body = createConversationSchema.parse(request.body);
 
-      const conversation = conversationStore.create(decoded.userId, body.title);
+      const conversation = await conversationStore.create(decoded.userId, body.title);
 
       return reply.status(201).send({
         success: true,
@@ -59,7 +59,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       const decoded = request.user as { userId: string };
       const { id } = request.params;
 
-      const conversation = conversationStore.get(id);
+      const conversation = await conversationStore.get(id);
 
       if (!conversation) {
         return reply.status(404).send({ error: 'Conversation not found' });
@@ -90,7 +90,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       const decoded = request.user as { userId: string };
       const { id } = request.params;
 
-      const deleted = conversationStore.delete(id, decoded.userId);
+      const deleted = await conversationStore.delete(id, decoded.userId);
 
       if (!deleted) {
         return reply.status(404).send({ error: 'Conversation not found or access denied' });
