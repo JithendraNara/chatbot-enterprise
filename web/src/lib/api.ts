@@ -1,6 +1,6 @@
 import { useAuthStore } from '../stores/authStore';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE = 'https://chatbot-enterprise-api.vercel.app';
 
 interface LoginResponse {
   token: string;
