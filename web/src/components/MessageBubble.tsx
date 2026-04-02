@@ -1,11 +1,38 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { clsx } from 'clsx';
 import { Message } from '../stores/chatStore';
-import { Image, FileText } from 'lucide-react';
+import { Image, FileText, Copy, Check } from 'lucide-react';
 import 'highlight.js/styles/github-dark.css';
+
+function CodeBlock({ children, className }: { children: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  
+  const handleCopy = () => {
+    navigator.clipboard.writeText(children);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="relative group">
+      <button
+        onClick={handleCopy}
+        className={clsx(
+          'absolute top-2 right-2 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100',
+          'bg-background hover:bg-card text-text-secondary'
+        )}
+      >
+        {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+      </button>
+      <pre className="overflow-x-auto p-4 rounded-lg bg-background my-2">
+        <code className={className}>{children}</code>
+      </pre>
+    </div>
+  );
+}
 
 interface MessageBubbleProps {
   message: Message;
@@ -22,11 +49,12 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
         components={{
-          pre: ({ children }) => (
-            <pre className="overflow-x-auto p-4 rounded-lg bg-background my-2">
-              {children}
-            </pre>
-          ),
+          pre: ({ children }) => {
+            const codeElement = children as { props?: { className?: string; children?: string } };
+            const code = codeElement?.props?.children || '';
+            const className = codeElement?.props?.className;
+            return <CodeBlock className={className}>{String(code)}</CodeBlock>;
+          },
           code: ({ className, children, ...props }) => {
             const isInline = !className;
             if (isInline) {
